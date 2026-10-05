@@ -917,32 +917,236 @@ canvas {
 }
 
 .waterfall-row {
-  border: 1px solid var(--foreground);
+  border: 2px solid var(--foreground);
   background-color: #FFFFFF;
-  padding: 12px;
+  padding: 6px;
+  position: relative;
 }
 
-.waterfall-header-row {
+.waterfall-box {
+  border: 1px solid var(--foreground);
+  background-color: #FFFFFF;
+  padding: 6px;
+}
+
+/* ==========================================================================
+   PANEL 01: 2D ACOUSTIC ROOM SLAM MAP & LIVING ROOM RECONSTRUCTION
+   ========================================================================== */
+
+.slam-container {
+  display: grid;
+  grid-template-columns: 1.55fr 1.0fr;
+  grid-gap: 20px;
+  align-items: stretch;
+}
+
+.slam-canvas-wrapper {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--foreground);
+  background-color: #FFFFFF;
+  position: relative;
+}
+
+.slam-canvas-header-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  padding: 10px 14px;
+  background-color: var(--muted);
+  border-bottom: 1px solid var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.waterfall-title {
+.slam-canvas-footer-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background-color: #FFFFFF;
+  border-top: 1px solid var(--border-light);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.06em;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.slam-reference-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 2px solid var(--foreground);
+  background-color: var(--muted);
+  padding: 14px;
+}
+
+.reference-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.ref-pill {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background-color: var(--foreground);
+  color: var(--background);
+  padding: 2px 8px;
+}
+
+.reference-photo-frame {
+  position: relative;
+  border: 1px solid var(--foreground);
+  background-color: #000000;
+  overflow: hidden;
+  cursor: pointer;
+  aspect-ratio: 612 / 437;
+}
+
+.ref-room-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(100%) contrast(115%);
+  transition: filter 0.25s ease-in-out;
+}
+
+.ref-room-img.color-mode {
+  filter: none;
+}
+
+.ref-photo-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.photo-badge {
+  position: absolute;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: #FFFFFF;
+  border: 1px solid #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 5px;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px #000000;
+}
+
+.reference-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  max-height: 250px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--background);
+  border: 1px solid var(--border-light);
+  padding: 6px 10px;
+  transition: all 0.08s ease-in-out;
+}
+
+.feature-item:hover {
+  border-color: var(--foreground);
+}
+
+.feature-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  background-color: var(--foreground);
+  color: var(--background);
+  padding: 2px 5px;
+  line-height: 1;
+}
+
+.feature-details {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.feature-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--foreground);
+  text-transform: uppercase;
+}
+
+.feature-meta {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--muted-foreground);
+}
+
+.feature-status {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  border: 1px solid var(--foreground);
+  padding: 2px 5px;
+}
+
+/* Photo Lightbox Modal */
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.92);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.photo-lightbox.hidden {
+  display: none;
+}
+
+.lightbox-content {
+  max-width: 900px;
+  width: 100%;
+  background-color: var(--background);
+  border: 2px solid var(--foreground);
+  padding: 20px;
+}
+
+.lightbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--foreground);
 }
 
-.waterfall-meta {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--muted-foreground);
-  letter-spacing: 0.08em;
+.lightbox-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--foreground);
 }
 
 /* ==========================================================================
@@ -1103,6 +1307,7 @@ canvas {
   .col-6 { grid-column: span 12; }
   .col-4 { grid-column: span 6; }
   .col-8 { grid-column: span 12; }
+  .slam-container { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 800px) {
@@ -1126,5 +1331,8 @@ canvas {
   }
   .rf-beacons-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .slam-container {
+    grid-template-columns: 1fr;
   }
 }

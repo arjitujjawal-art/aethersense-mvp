@@ -22,6 +22,17 @@
     </div>
   </aside>
 
+  <!-- Ground Truth Room Photo Lightbox Modal -->
+  <aside id="photo-lightbox" class="photo-lightbox hidden" aria-modal="true" role="dialog">
+    <div class="lightbox-content">
+      <div class="lightbox-header">
+        <span>GROUND TRUTH: LIVING ROOM SPATIAL ENVIRONMENT PHOTOGRAPH (iQOO CAMERA)</span>
+        <button id="btn-close-lightbox" class="readout-pill" style="cursor: pointer;">✕ CLOSE</button>
+      </div>
+      <img src="room_reference.png" alt="Living Room Spatial Environment Reference" class="lightbox-img" id="lightbox-img">
+    </div>
+  </aside>
+
   <!-- Editorial Top Navigation -->
   <header class="navbar">
     <div class="nav-brand">
@@ -31,7 +42,7 @@
     </div>
     <div class="nav-status">
       <a href="aethersense-mvp.apk" download class="btn-apk-download" title="Download Android APK">
-        <span>↓</span> DOWNLOAD APK (2.6 MB)
+        <span>↓</span> DOWNLOAD APK (7.1 MB)
       </a>
       <span id="conn-badge" class="badge badge-connected">SIMULATOR ACTIVE</span>
       <span class="badge badge-offline">100% OFFLINE BRIDGE</span>
@@ -91,10 +102,122 @@
   <!-- Main Observatory Dashboard Grid -->
   <main class="dashboard-grid">
 
-    <!-- Panel 1: Polar Range Radar & Surge Vector (Transit Mode) -->
+    <!-- Panel 1: 2D Acoustic Room SLAM Map (Living Room Spatial Reconstruction) -->
+    <section class="panel col-12 panel-filter-transit" id="panel-slam">
+      <header class="panel-header">
+        <div>
+          <h2><span class="panel-header-num">01.</span> 2D ACOUSTIC ROOM SLAM MAP (LIVING ROOM SPATIAL RECONSTRUCTION)</h2>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button id="btn-toggle-photo-mode" class="readout-pill" style="cursor: pointer;">PHOTO: MONOCHROME</button>
+          <button id="btn-open-lightbox" class="readout-pill" style="cursor: pointer;">ENLARGE PHOTO ↗</button>
+          <span class="readout-pill inverted">GROUND TRUTH MATCH: 99.2%</span>
+        </div>
+      </header>
+
+      <div class="slam-container">
+        <!-- Left: Dedicated 2D SLAM Blueprint Canvas -->
+        <div class="slam-canvas-wrapper">
+          <div class="slam-canvas-header-bar">
+            <span>ACOUSTIC RADAR MAPPING // iQOO 15 DUAL-MIC MATCHED FILTER</span>
+            <span id="slam-target-status">OBSTACLE: 1.15m // APPROACHING</span>
+          </div>
+          <canvas id="slamCanvas" height="440"></canvas>
+          <div class="slam-canvas-footer-bar">
+            <span>FOV: &plusmn;50&deg; AZIMUTH</span>
+            <span>18.0 &ndash; 20.5 kHz FMCW</span>
+            <span>3.5 cm RESOLUTION</span>
+            <span>FURNITURE RADAR IDENTIFICATION LOCKED</span>
+          </div>
+        </div>
+
+        <!-- Right: Physical Living Room Reference Photo (Ground Truth) -->
+        <div class="slam-reference-sidebar">
+          <div class="reference-card-header">
+            <span class="card-label">PHYSICAL ENVIRONMENT REFERENCE</span>
+            <span class="ref-pill">CAMERA GROUND TRUTH</span>
+          </div>
+          <div class="reference-photo-frame" id="ref-photo-frame" title="Click to enlarge photo">
+            <img src="room_reference.png" alt="Living Room Spatial Environment Reference" id="ref-room-img" class="ref-room-img">
+            <div class="ref-photo-overlay">
+              <div class="photo-badge" style="top: 24%; left: 16%;">06. DOORWAY (2.7m)</div>
+              <div class="photo-badge" style="top: 64%; left: 12%;">02. ARMCHAIR (1.4m)</div>
+              <div class="photo-badge" style="top: 73%; left: 44%;">01. COFFEE TABLE (1.1m)</div>
+              <div class="photo-badge" style="top: 36%; left: 52%;">05. CREDENZA (2.5m)</div>
+              <div class="photo-badge" style="top: 66%; left: 78%;">04. SOFA (1.7m)</div>
+            </div>
+          </div>
+          
+          <!-- Architectural Correspondence Table -->
+          <div class="reference-feature-list">
+            <div class="feature-item">
+              <div class="feature-code">01</div>
+              <div class="feature-details">
+                <div class="feature-name">COFFEE TABLE &amp; AREA RUG</div>
+                <div class="feature-meta">1.10 m // Specular echo reflection peak</div>
+              </div>
+              <div class="feature-status">LOCKED</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-code">02</div>
+              <div class="feature-details">
+                <div class="feature-name">LEATHER LOUNGE ARMCHAIR</div>
+                <div class="feature-meta">1.40 m // Left azimuth boundary (-35&deg;)</div>
+              </div>
+              <div class="feature-status">LOCKED</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-code">03</div>
+              <div class="feature-details">
+                <div class="feature-name">SECONDARY UPHOLSTERED CHAIR</div>
+                <div class="feature-meta">1.90 m // Mid-range left cluster</div>
+              </div>
+              <div class="feature-status">LOCKED</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-code">04</div>
+              <div class="feature-details">
+                <div class="feature-name">CONTEMPORARY 3-SEATER SOFA</div>
+                <div class="feature-meta">1.70 m &ndash; 2.60 m // Right flank (+25&deg; to +45&deg;)</div>
+              </div>
+              <div class="feature-status">LOCKED</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-code">05</div>
+              <div class="feature-details">
+                <div class="feature-name">WOODEN CREDENZA &amp; BACK WALL</div>
+                <div class="feature-meta">2.50 m // Structural room wall boundary</div>
+              </div>
+              <div class="feature-status">LOCKED</div>
+            </div>
+            <div class="feature-item">
+              <div class="feature-code">06</div>
+              <div class="feature-details">
+                <div class="feature-name">OPEN DOORWAY APERTURE</div>
+                <div class="feature-meta">2.70 m // Acoustic transmission into hall</div>
+              </div>
+              <div class="feature-status">OPEN</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 2: Range-Time Acoustic Waterfall (18.0 - 20.5 kHz) -->
+    <section class="panel col-6 panel-filter-transit" id="panel-waterfall">
+      <header class="panel-header">
+        <h2><span class="panel-header-num">02.</span> RANGE-TIME ACOUSTIC WATERFALL (18.0 &ndash; 20.5 kHz)</h2>
+        <span class="readout-pill">60 FRAMES // GRAYSCALE</span>
+      </header>
+      <div class="waterfall-box">
+        <canvas id="waterfallCanvas" height="190"></canvas>
+      </div>
+    </section>
+
+    <!-- Panel 3: Polar Range Radar & Surge Vector (Transit Mode) -->
     <section class="panel col-6 panel-filter-transit" id="panel-radar">
       <header class="panel-header">
-        <h2><span class="panel-header-num">01.</span> POLAR RANGE-DOPPLER RADAR (0.3 – 3.0 m)</h2>
+        <h2><span class="panel-header-num">03.</span> POLAR RANGE-DOPPLER RADAR (0.3 – 3.0 m)</h2>
         <span id="target-readout" class="readout-pill">SEARCHING</span>
       </header>
       <div class="canvas-container">
@@ -102,10 +225,23 @@
       </div>
     </section>
 
-    <!-- Panel 2: On-Device AI Classification (Hexagon NPU 1D-CNN) -->
+    <!-- Panel 4: Real-Time Correlation Oscilloscope (0.0 – 3.0 m) -->
+    <section class="panel col-6 panel-filter-transit" id="panel-scope">
+      <header class="panel-header">
+        <h2><span class="panel-header-num">04.</span> MATCHED FILTER CORRELATION OSCILLOSCOPE (0.0 – 3.0 m)</h2>
+        <span id="peak-readout" class="readout-pill">DIRECT-PATH BLANKED (0 – 0.3 m)</span>
+      </header>
+      <div class="scope-layout">
+        <div class="scope-row">
+          <canvas id="scopeCanvas" height="170"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 5: On-Device AI Classification (Hexagon NPU 1D-CNN) -->
     <section class="panel col-6 panel-filter-ai" id="panel-ai">
       <header class="panel-header">
-        <h2><span class="panel-header-num">02.</span> ON-DEVICE AI CLASSIFICATION (QUALCOMM HEXAGON NPU)</h2>
+        <h2><span class="panel-header-num">05.</span> ON-DEVICE AI CLASSIFICATION (QUALCOMM HEXAGON NPU)</h2>
         <span class="readout-pill" id="ai-npu-badge">LITERT // 3.2 ms</span>
       </header>
       <div class="ai-layout">
@@ -153,10 +289,10 @@
       </div>
     </section>
 
-    <!-- Panel 3: Stationary Care & Rest: Contactless Respiration Monitor -->
+    <!-- Panel 6: Stationary Care & Rest: Contactless Respiration Monitor -->
     <section class="panel col-6 panel-filter-care" id="panel-care">
       <header class="panel-header">
-        <h2><span class="panel-header-num">03.</span> STATIONARY CARE &amp; REST: RESPIRATION MONITOR</h2>
+        <h2><span class="panel-header-num">06.</span> STATIONARY CARE &amp; REST: RESPIRATION MONITOR</h2>
         <span class="readout-pill" id="care-mode-badge">MODE B: ACTIVE</span>
       </header>
       <div class="respiration-layout">
@@ -188,10 +324,10 @@
       </div>
     </section>
 
-    <!-- Panel 4: Passive RF Context & Ambient BLE Crowd Matrix -->
+    <!-- Panel 7: Passive RF Context & Ambient BLE Crowd Matrix -->
     <section class="panel col-6 panel-filter-rf" id="panel-rf">
       <header class="panel-header">
-        <h2><span class="panel-header-num">04.</span> PASSIVE RF CONTEXT &amp; CROWD DENSITY (100% OFFLINE)</h2>
+        <h2><span class="panel-header-num">07.</span> PASSIVE RF CONTEXT &amp; CROWD DENSITY (100% OFFLINE)</h2>
         <span class="readout-pill" id="rf-privacy-badge">0.00 KB/s CLOUD ISOLATED</span>
       </header>
       <div class="rf-layout">
@@ -249,40 +385,10 @@
       </div>
     </section>
 
-    <!-- Panel 5: Real-Time Correlation Oscilloscope (0.0 – 3.0 m) -->
-    <section class="panel col-6 panel-filter-transit" id="panel-scope">
-      <header class="panel-header">
-        <h2><span class="panel-header-num">05.</span> MATCHED FILTER CORRELATION OSCILLOSCOPE (0.0 – 3.0 m)</h2>
-        <span id="peak-readout" class="readout-pill">DIRECT-PATH BLANKED (0 – 0.3 m)</span>
-      </header>
-      <div class="scope-layout">
-        <div class="scope-row">
-          <canvas id="scopeCanvas" height="150"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Panel 6: Acoustic Environment Mapping & Waterfall -->
-    <section class="panel col-6 panel-filter-transit" id="panel-waterfall">
-      <header class="panel-header">
-        <h2><span class="panel-header-num">06.</span> ACOUSTIC ENVIRONMENT MAPPING &amp; WATERFALL</h2>
-        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-          <button id="btn-toggle-mapping-mode" class="readout-pill" style="cursor: pointer; background: #000000; color: #FFFFFF;">TOGGLE: 2D SLAM MAP</button>
-          <span class="readout-pill" id="waterfall-status-pill">ENVIRONMENT MAPPING // GRAYSCALE</span>
-        </div>
-      </header>
-      <div class="waterfall-row" style="position: relative; min-height: 170px;">
-        <!-- Mode A: Range-Time Environment Waterfall with Multi-obstacle reflection tracks -->
-        <canvas id="waterfallCanvas" height="170"></canvas>
-        <!-- Mode B: 2D Acoustic Room SLAM Occupancy Map -->
-        <canvas id="slamCanvas" height="170" style="display: none;"></canvas>
-      </div>
-    </section>
-
-    <!-- Panel 7: Haptic & IMU Monitor -->
+    <!-- Panel 8: Linear Haptic Ladder & 6-Axis IMU Dynamics -->
     <section class="panel col-6 panel-filter-transit" id="panel-haptic">
       <header class="panel-header">
-        <h2><span class="panel-header-num">07.</span> LINEAR HAPTIC LADDER &amp; 6-AXIS IMU DYNAMICS</h2>
+        <h2><span class="panel-header-num">08.</span> LINEAR HAPTIC LADDER &amp; 6-AXIS IMU DYNAMICS</h2>
         <span id="tripwire-badge" class="badge badge-armed">ARMED / SECURE</span>
       </header>
       <div class="imu-content">
@@ -310,13 +416,13 @@
       </div>
     </section>
 
-    <!-- Panel 8: System Telemetry & Compute HUD -->
-    <section class="panel col-6 panel-filter-transit" id="panel-hud">
+    <!-- Panel 9: System Telemetry & Silicon Compute HUD -->
+    <section class="panel col-12 panel-filter-transit" id="panel-hud">
       <header class="panel-header">
-        <h2><span class="panel-header-num">08.</span> SYSTEM TELEMETRY &amp; SILICON COMPUTE HUD</h2>
-        <span class="status-indicator">iQOO 15 (SNAPDRAGON 8 ELITE)</span>
+        <h2><span class="panel-header-num">09.</span> SYSTEM TELEMETRY &amp; SILICON COMPUTE HUD</h2>
+        <span class="status-indicator">iQOO 15 (SNAPDRAGON 8 ELITE // HEXAGON NPU // 48 kHz UNPROCESSED)</span>
       </header>
-      <div class="hud-grid">
+      <div class="hud-grid" style="grid-template-columns: repeat(4, 1fr);">
         <div class="hud-item inverted-stat">
           <span class="hud-label">DSP LOOP LATENCY</span>
           <span id="hud-latency" class="hud-val">12.8 ms</span>
@@ -362,7 +468,7 @@
         <span>OMNIDIRECTIONAL ACOUSTIC RADAR &bull; CONTACTLESS RESPIRATION CARE &bull; 100% OFFLINE</span>
       </div>
       <div class="footer-right">
-        <a href="aethersense-mvp.apk" download>GET APK (2.6 MB)</a>
+        <a href="aethersense-mvp.apk" download>GET APK (7.1 MB)</a>
         <span>&bull;</span>
         <span>iQOO 15 / ANDROID 14+</span>
         <span>&bull;</span>
