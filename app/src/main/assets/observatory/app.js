@@ -100,13 +100,39 @@
   const scopeCtx = scopeCanvas.getContext('2d');
   const waterfallCanvas = document.getElementById('waterfallCanvas');
   const waterfallCtx = waterfallCanvas.getContext('2d');
+  const slamCanvas = document.getElementById('slamCanvas');
+  const slamCtx = slamCanvas ? slamCanvas.getContext('2d') : null;
   const imuCanvas = document.getElementById('imuSparkline');
   const imuCtx = imuCanvas.getContext('2d');
   const respirationCanvas = document.getElementById('respirationCanvas');
   const respCtx = respirationCanvas.getContext('2d');
 
+  // Mapping Mode State: 'WATERFALL' | 'SLAM'
+  let mappingView = 'WATERFALL';
+  const btnToggleMappingMode = document.getElementById('btn-toggle-mapping-mode');
+  const waterfallStatusPill = document.getElementById('waterfall-status-pill');
+
+  if (btnToggleMappingMode) {
+    btnToggleMappingMode.addEventListener('click', () => {
+      if (mappingView === 'WATERFALL') {
+        mappingView = 'SLAM';
+        waterfallCanvas.style.display = 'none';
+        if (slamCanvas) slamCanvas.style.display = 'block';
+        btnToggleMappingMode.textContent = 'TOGGLE: RANGE-TIME WATERFALL';
+        if (waterfallStatusPill) waterfallStatusPill.textContent = '2D ROOM SLAM // RECONSTRUCTION';
+      } else {
+        mappingView = 'WATERFALL';
+        if (slamCanvas) slamCanvas.style.display = 'none';
+        waterfallCanvas.style.display = 'block';
+        btnToggleMappingMode.textContent = 'TOGGLE: 2D SLAM MAP';
+        if (waterfallStatusPill) waterfallStatusPill.textContent = 'ENVIRONMENT MAPPING // GRAYSCALE';
+      }
+      resizeCanvases();
+    });
+  }
+
   function resizeCanvases() {
-    [radarCanvas, scopeCanvas, waterfallCanvas, imuCanvas, respirationCanvas].forEach(c => {
+    [radarCanvas, scopeCanvas, waterfallCanvas, slamCanvas, imuCanvas, respirationCanvas].forEach(c => {
       if (!c) return;
       const rect = c.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -255,18 +281,41 @@
       const threat = isSurgeHazard ? 'HAZARD' : (simIsCluttered ? 'UNCERTAIN' :
         (!detected ? 'CLEAR' : (simTargetDist < 0.7 ? 'HAZARD' : (simTargetDist < 1.2 ? 'WARNING' : 'CAUTION'))));
 
-      // 100-point correlation curve across 0.0 to 3.0 m
+      // 100-point physical environmental correlation curve across 0.0 to 3.0 m
+      // Multi-reflection acoustic modeling: Static room boundaries + Furniture + Dynamic target + Multipath
+      const wallDist = 2.35;
+      const fixtureDist = 1.55;
+      const floorBounce = 0.85;
+
       const curve = new Array(100).fill(0).map((_, i) => {
         const binDist = (i / 100) * 3.0;
-        let v = Math.random() * 0.03;
-        if (binDist < 0.3) v = 0.0; // blanked
-        if (detected && Math.abs(binDist - simTargetDist) < 0.16) {
-          v = 0.88 * Math.exp(-Math.pow((binDist - simTargetDist) / 0.06, 2));
+        let v = Math.random() * 0.035; // Natural acoustic speckle noise floor
+
+        if (binDist < 0.3) {
+          return 0.0; // Direct-path microphone blanking zone
         }
-        if (simIsCluttered && Math.abs(binDist - 1.85) < 0.16) {
-          v = Math.max(v, 0.72 * Math.exp(-Math.pow((binDist - 1.85) / 0.06, 2)));
+
+        // 1. Static Room Wall Backscatter (persistent boundary at 2.35m)
+        v += 0.72 * Math.exp(-Math.pow((binDist - wallDist) / 0.08, 2));
+
+        // 2. Corner Desk / Pillar Reflection (static fixture at 1.55m)
+        v += 0.38 * Math.exp(-Math.pow((binDist - fixtureDist) / 0.07, 2));
+
+        // 3. Ground / Floor Specular Bounce at 0.85m
+        v += 0.18 * Math.exp(-Math.pow((binDist - floorBounce) / 0.09, 2));
+
+        // 4. Dynamic Moving Obstacle (approaching / surging target)
+        if (detected) {
+          v = Math.max(v, 0.94 * Math.exp(-Math.pow((binDist - simTargetDist) / 0.06, 2)));
         }
-        return v;
+
+        // 5. Room Multipath / Reverberation (if clutter mode toggled)
+        if (simIsCluttered) {
+          v = Math.max(v, 0.65 * Math.exp(-Math.pow((binDist - 1.95) / 0.08, 2)));
+          v = Math.max(v, 0.52 * Math.exp(-Math.pow((binDist - 2.70) / 0.09, 2)));
+        }
+
+        return Math.min(1.0, v);
       });
 
       // Periodic chirp sound trigger
@@ -639,7 +688,11 @@
 
     drawRadar(time);
     drawScope();
-    drawWaterfall();
+    if (mappingView === 'SLAM') {
+      drawSlamMap();
+    } else {
+      drawWaterfall();
+    }
     drawImu();
     drawRespiration();
 
@@ -697,6 +750,31 @@
       radarCtx.stroke();
     });
     radarCtx.setLineDash([]);
+
+    // Environment Boundary Mapping: Static Room Wall (2.35m) with Doorway Opening
+    const wallRad = (2.35 / maxRangeM) * maxRadius;
+    radarCtx.lineWidth = 2.5;
+    radarCtx.strokeStyle = '#000000';
+    // Left wall segment
+    radarCtx.beginPath();
+    radarCtx.arc(cx, cy, wallRad, (180 + 30) * (Math.PI / 180), (180 + 75) * (Math.PI / 180));
+    radarCtx.stroke();
+    // Right wall segment
+    radarCtx.beginPath();
+    radarCtx.arc(cx, cy, wallRad, (180 + 105) * (Math.PI / 180), (180 + 150) * (Math.PI / 180));
+    radarCtx.stroke();
+    // Doorway opening dashed line
+    radarCtx.setLineDash([2, 3]);
+    radarCtx.lineWidth = 1;
+    radarCtx.strokeStyle = '#737373';
+    radarCtx.beginPath();
+    radarCtx.arc(cx, cy, wallRad, (180 + 75) * (Math.PI / 180), (180 + 105) * (Math.PI / 180));
+    radarCtx.stroke();
+    radarCtx.setLineDash([]);
+    // Corner fixture at 1.55m
+    const fixRad = (1.55 / maxRangeM) * maxRadius;
+    const fixAngle = (180 + 55) * (Math.PI / 180);
+    radarCtx.strokeRect(cx + Math.cos(fixAngle) * fixRad - 6, cy + Math.sin(fixAngle) * fixRad - 6, 12, 12);
 
     // Animated sonar sweep sector
     sweepAngle = (sweepAngle + 0.035) % (Math.PI * 2);
@@ -901,36 +979,313 @@
     }
   }
 
-  // ---------------------------------------------------- 3. Grayscale Waterfall
+  // ---------------------------------------------------- 3. Grayscale Environmental Waterfall & 2D SLAM
   function drawWaterfall() {
     const w = waterfallCanvas.width;
     const h = waterfallCanvas.height;
     if (w === 0 || h === 0 || waterfallBuffer.length === 0) return;
 
     waterfallCtx.clearRect(0, 0, w, h);
+    waterfallCtx.fillStyle = '#FFFFFF';
+    waterfallCtx.fillRect(0, 0, w, h);
 
+    const padLeft = 40;
+    const padRight = 16;
+    const padTop = 22;
+    const padBottom = 16;
+    const plotW = w - padLeft - padRight;
+    const plotH = h - padTop - padBottom;
+
+    // Outer framing box
+    waterfallCtx.lineWidth = 1;
+    waterfallCtx.strokeStyle = '#000000';
+    waterfallCtx.strokeRect(padLeft, padTop, plotW, plotH);
+
+    // Top range axis markers (0.0 to 3.0 m)
+    for (let m = 0; m <= 3.0; m += 0.5) {
+      const x = padLeft + (m / 3.0) * plotW;
+      waterfallCtx.beginPath();
+      waterfallCtx.moveTo(x, padTop - 4);
+      waterfallCtx.lineTo(x, padTop);
+      waterfallCtx.strokeStyle = '#000000';
+      waterfallCtx.stroke();
+
+      waterfallCtx.fillStyle = '#525252';
+      waterfallCtx.font = '500 9px "JetBrains Mono", monospace';
+      waterfallCtx.textAlign = 'center';
+      waterfallCtx.fillText(`${m.toFixed(1)}m`, x, padTop - 6);
+    }
+
+    // Left time history axis markers (0s to -10s)
+    const timeSteps = [0, 2, 4, 6, 8, 10];
+    timeSteps.forEach(sec => {
+      const y = padTop + (sec / 10.0) * plotH;
+      waterfallCtx.beginPath();
+      waterfallCtx.moveTo(padLeft - 4, y);
+      waterfallCtx.lineTo(padLeft, y);
+      waterfallCtx.strokeStyle = '#000000';
+      waterfallCtx.stroke();
+
+      waterfallCtx.fillStyle = '#525252';
+      waterfallCtx.font = '500 8px "JetBrains Mono", monospace';
+      waterfallCtx.textAlign = 'right';
+      waterfallCtx.fillText(sec === 0 ? '0s' : `-${sec}s`, padLeft - 6, y + 3);
+    });
+
+    // Direct-path blanking zone (0 – 0.3 m) with diagonal line hatching
+    const blankW = (0.3 / 3.0) * plotW;
+    waterfallCtx.save();
+    waterfallCtx.beginPath();
+    waterfallCtx.rect(padLeft, padTop, blankW, plotH);
+    waterfallCtx.clip();
+
+    waterfallCtx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+    waterfallCtx.lineWidth = 1;
+    for (let x = padLeft - plotH; x < padLeft + blankW + plotH; x += 8) {
+      waterfallCtx.beginPath();
+      waterfallCtx.moveTo(x, padTop + plotH);
+      waterfallCtx.lineTo(x + plotH, padTop);
+      waterfallCtx.stroke();
+    }
+    waterfallCtx.restore();
+
+    // Blanking boundary line
+    waterfallCtx.beginPath();
+    waterfallCtx.moveTo(padLeft + blankW, padTop);
+    waterfallCtx.lineTo(padLeft + blankW, padTop + plotH);
+    waterfallCtx.strokeStyle = '#000000';
+    waterfallCtx.lineWidth = 1;
+    waterfallCtx.stroke();
+
+    waterfallCtx.fillStyle = '#000000';
+    waterfallCtx.font = '700 8px "JetBrains Mono", monospace';
+    waterfallCtx.textAlign = 'center';
+    waterfallCtx.fillText('BLANKED', padLeft + blankW / 2, padTop + plotH - 6);
+
+    // Multi-reflection waterfall pixel matrix (60 frames history)
     const rows = waterfallBuffer.length;
-    const rowH = h / rows;
+    const rowH = plotH / rows;
 
     for (let r = 0; r < rows; r++) {
       const curve = waterfallBuffer[r];
       const cols = curve.length;
-      const colW = w / cols;
-      const y = r * rowH;
+      const colW = (plotW - blankW) / cols;
+      const y = padTop + r * rowH;
 
       for (let c = 0; c < cols; c++) {
         const val = Math.max(0, Math.min(1, curve[c]));
         const intensity = Math.pow(val, 0.65);
+        // High contrast grayscale mapping (white = no echo, black = strong reflection)
         const gray = Math.max(0, Math.min(255, Math.floor(255 - intensity * 255)));
 
         waterfallCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
-        waterfallCtx.fillRect(c * colW, y, colW + 1, rowH + 1);
+        waterfallCtx.fillRect(padLeft + blankW + c * colW, y, colW + 1, rowH + 1);
       }
     }
 
-    waterfallCtx.strokeStyle = '#000000';
-    waterfallCtx.lineWidth = 1;
-    waterfallCtx.strokeRect(0, 0, w, h);
+    // Static Room Feature Callout Lines
+    const wallX = padLeft + (2.35 / 3.0) * plotW;
+    waterfallCtx.setLineDash([2, 4]);
+    waterfallCtx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+    waterfallCtx.beginPath();
+    waterfallCtx.moveTo(wallX, padTop);
+    waterfallCtx.lineTo(wallX, padTop + plotH);
+    waterfallCtx.stroke();
+
+    const fixtureX = padLeft + (1.55 / 3.0) * plotW;
+    waterfallCtx.beginPath();
+    waterfallCtx.moveTo(fixtureX, padTop);
+    waterfallCtx.lineTo(fixtureX, padTop + plotH);
+    waterfallCtx.stroke();
+    waterfallCtx.setLineDash([]);
+
+    // Feature tags
+    waterfallCtx.fillStyle = '#000000';
+    waterfallCtx.font = '700 8px "JetBrains Mono", monospace';
+    waterfallCtx.textAlign = 'center';
+    waterfallCtx.fillText('WALL (2.35m)', wallX, padTop + plotH - 6);
+    waterfallCtx.fillText('FIXTURE (1.55m)', fixtureX, padTop + plotH - 6);
+
+    // Dynamic target pointer
+    if (latestFrame && latestFrame.target && latestFrame.target.detected && latestFrame.target.distance_m > 0) {
+      const d = latestFrame.target.distance_m;
+      const targetX = padLeft + (d / 3.0) * plotW;
+      waterfallCtx.fillStyle = '#000000';
+      waterfallCtx.beginPath();
+      waterfallCtx.moveTo(targetX, padTop + 2);
+      waterfallCtx.lineTo(targetX - 4, padTop + 8);
+      waterfallCtx.lineTo(targetX + 4, padTop + 8);
+      waterfallCtx.closePath();
+      waterfallCtx.fill();
+    }
+  }
+
+  // ---------------------------------------------------- 2D Acoustic Room SLAM Map
+  function drawSlamMap() {
+    if (!slamCanvas || !slamCtx) return;
+    const w = slamCanvas.width;
+    const h = slamCanvas.height;
+    if (w === 0 || h === 0) return;
+
+    slamCtx.clearRect(0, 0, w, h);
+    slamCtx.fillStyle = '#FFFFFF';
+    slamCtx.fillRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h - 22;
+    const maxRangeM = 3.0;
+    const scaleY = (cy - 34) / maxRangeM;
+
+    // Fine background grid
+    slamCtx.lineWidth = 1;
+    slamCtx.strokeStyle = '#F5F5F5';
+    for (let x = 0; x < w; x += 30) {
+      slamCtx.beginPath(); slamCtx.moveTo(x, 0); slamCtx.lineTo(x, h); slamCtx.stroke();
+    }
+    for (let y = 0; y < h; y += 30) {
+      slamCtx.beginPath(); slamCtx.moveTo(0, y); slamCtx.lineTo(w, y); slamCtx.stroke();
+    }
+
+    // Outer framing box
+    slamCtx.strokeStyle = '#000000';
+    slamCtx.strokeRect(0, 0, w, h);
+
+    // Forward acoustic coverage beam cone
+    slamCtx.setLineDash([3, 4]);
+    slamCtx.strokeStyle = '#D4D4D4';
+    [-45, 0, 45].forEach(deg => {
+      const rad = (deg - 90) * (Math.PI / 180);
+      slamCtx.beginPath();
+      slamCtx.moveTo(cx, cy);
+      slamCtx.lineTo(cx + Math.cos(rad) * (cy - 30), cy + Math.sin(rad) * (cy - 30));
+      slamCtx.stroke();
+    });
+
+    // Range distance arc circles (1m, 2m, 3m)
+    [1.0, 2.0, 3.0].forEach(r => {
+      const rad = r * scaleY;
+      slamCtx.beginPath();
+      slamCtx.arc(cx, cy, rad, Math.PI, 2 * Math.PI);
+      slamCtx.stroke();
+
+      slamCtx.fillStyle = '#888888';
+      slamCtx.font = '500 8px "JetBrains Mono", monospace';
+      slamCtx.textAlign = 'left';
+      slamCtx.fillText(`${r.toFixed(1)}m`, cx + 8, cy - rad + 3);
+    });
+    slamCtx.setLineDash([]);
+
+    // 1. Reconstructed Front Wall Boundary at 2.35m
+    const wallY = cy - (2.35 * scaleY);
+    const doorLeft = cx - 30;
+    const doorRight = cx + 25;
+    const wallLeft = cx - 130;
+    const wallRight = cx + 130;
+
+    // Left wall segment
+    slamCtx.lineWidth = 3;
+    slamCtx.strokeStyle = '#000000';
+    slamCtx.beginPath();
+    slamCtx.moveTo(wallLeft, wallY);
+    slamCtx.lineTo(doorLeft, wallY);
+    slamCtx.stroke();
+
+    // Right wall segment
+    slamCtx.beginPath();
+    slamCtx.moveTo(doorRight, wallY);
+    slamCtx.lineTo(wallRight, wallY);
+    slamCtx.stroke();
+
+    // Doorway opening indicator
+    slamCtx.setLineDash([2, 2]);
+    slamCtx.lineWidth = 1;
+    slamCtx.strokeStyle = '#737373';
+    slamCtx.beginPath();
+    slamCtx.moveTo(doorLeft, wallY);
+    slamCtx.lineTo(doorRight, wallY);
+    slamCtx.stroke();
+    slamCtx.setLineDash([]);
+
+    slamCtx.fillStyle = '#000000';
+    slamCtx.font = '700 8px "JetBrains Mono", monospace';
+    slamCtx.textAlign = 'center';
+    slamCtx.fillText('DOORWAY (0.8m APERTURE)', (doorLeft + doorRight) / 2, wallY - 6);
+    slamCtx.fillText('FRONT WALL (2.35m CONCRETE)', wallLeft + 40, wallY - 6);
+
+    // Lateral walls
+    slamCtx.lineWidth = 2;
+    slamCtx.beginPath();
+    slamCtx.moveTo(wallLeft, wallY);
+    slamCtx.lineTo(wallLeft, cy - 10);
+    slamCtx.moveTo(wallRight, wallY);
+    slamCtx.lineTo(wallRight, cy - 10);
+    slamCtx.stroke();
+
+    // 2. Corner Desk / Pillar Fixture at 1.55m
+    const fixtureY = cy - (1.55 * scaleY);
+    const fixtureX = cx - 75;
+    slamCtx.strokeRect(fixtureX - 16, fixtureY - 12, 32, 24);
+    slamCtx.fillStyle = '#000000';
+    slamCtx.fillText('DESK (1.55m)', fixtureX, fixtureY + 22);
+
+    // 3. Dynamic Detected Obstacle
+    if (latestFrame && latestFrame.target && latestFrame.target.detected && latestFrame.target.distance_m > 0) {
+      const d = latestFrame.target.distance_m;
+      const targetY = cy - (d * scaleY);
+      const targetX = cx + (Math.sin(Date.now() * 0.001) * 20); // Dynamic lateral walk
+
+      // Target Crosshair
+      slamCtx.lineWidth = 1.5;
+      slamCtx.strokeStyle = '#000000';
+      slamCtx.beginPath();
+      slamCtx.moveTo(targetX - 10, targetY); slamCtx.lineTo(targetX + 10, targetY);
+      slamCtx.moveTo(targetX, targetY - 10); slamCtx.lineTo(targetX, targetY + 10);
+      slamCtx.stroke();
+
+      slamCtx.beginPath();
+      slamCtx.arc(targetX, targetY, 4, 0, Math.PI * 2);
+      slamCtx.fillStyle = '#000000';
+      slamCtx.fill();
+
+      // Velocity approach vector
+      slamCtx.beginPath();
+      slamCtx.moveTo(targetX, targetY);
+      slamCtx.lineTo(targetX, targetY + 18);
+      slamCtx.stroke();
+
+      // Target Callout Badge
+      const label = `TARGET: ${d.toFixed(2)}m [APPROACHING]`;
+      slamCtx.font = '700 9px "JetBrains Mono", monospace';
+      const tw = slamCtx.measureText(label).width;
+      slamCtx.fillStyle = '#000000';
+      slamCtx.fillRect(targetX + 12, targetY - 9, tw + 10, 18);
+      slamCtx.fillStyle = '#FFFFFF';
+      slamCtx.textAlign = 'left';
+      slamCtx.fillText(label, targetX + 17, targetY + 4);
+    }
+
+    // Phone / Emitter Origin
+    slamCtx.fillStyle = '#000000';
+    slamCtx.fillRect(cx - 6, cy - 6, 12, 12);
+    slamCtx.fillStyle = '#000000';
+    slamCtx.font = '700 9px "JetBrains Mono", monospace';
+    slamCtx.textAlign = 'center';
+    slamCtx.fillText('iQOO 15 (TRANSDUCER)', cx, cy + 16);
+
+    // Scale Bar & Legend at Bottom Left
+    slamCtx.lineWidth = 2;
+    slamCtx.beginPath();
+    slamCtx.moveTo(14, h - 14);
+    slamCtx.lineTo(14 + scaleY, h - 14);
+    slamCtx.stroke();
+    slamCtx.font = '500 8px "JetBrains Mono", monospace';
+    slamCtx.textAlign = 'left';
+    slamCtx.fillText('1.0m SCALE', 14, h - 20);
+
+    // Status Tag at Top Right
+    slamCtx.font = '700 8px "JetBrains Mono", monospace';
+    slamCtx.textAlign = 'right';
+    slamCtx.fillText('2D ACOUSTIC ROOM SLAM // 3.5cm RESOLUTION', w - 12, 14);
   }
 
   // ---------------------------------------------------- 4. IMU Sparkline

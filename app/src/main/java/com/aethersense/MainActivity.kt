@@ -1,6 +1,7 @@
 package com.aethersense
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
@@ -10,25 +11,24 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.TextView
 import com.aethersense.service.SonarService
 
 class MainActivity : Activity() {
 
-    private lateinit var tvStatus: TextView
-    private lateinit var tvDistance: TextView
-    private lateinit var tvThreat: TextView
-    private lateinit var tvImu: TextView
-    private lateinit var tvBridge: TextView
-    private lateinit var btnToggle: Button
-    private lateinit var btnDismissImpact: Button
+    private lateinit var webView: WebView
+    private lateinit var tvAppTitle: TextView
+    private lateinit var btnServiceToggle: Button
 
     private var sonarService: SonarService? = null
     private var isServiceBound = false
@@ -38,37 +38,28 @@ class MainActivity : Activity() {
             val binder = service as SonarService.LocalBinder
             sonarService = binder.service
             isServiceBound = true
-            updateUi()
+            updateServiceStatusUi()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             sonarService = null
             isServiceBound = false
-            updateUi()
+            updateServiceStatusUi()
         }
     }
 
-    private val uiHandler = Handler(Looper.getMainLooper())
-    private val pollRunnable = object : Runnable {
-        override fun run() {
-            updateUi()
-            uiHandler.postDelayed(this, 200)
-        }
-    }
-
+    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        tvStatus = findViewById(R.id.tvStatus)
-        tvDistance = findViewById(R.id.tvDistance)
-        tvThreat = findViewById(R.id.tvThreat)
-        tvImu = findViewById(R.id.tvImu)
-        tvBridge = findViewById(R.id.tvBridge)
-        btnToggle = findViewById(R.id.btnToggle)
-        btnDismissImpact = findViewById(R.id.btnDismissImpact)
+        tvAppTitle = findViewById(R.id.tvAppTitle)
+        btnServiceToggle = findViewById(R.id.btnServiceToggle)
+        webView = findViewById(R.id.webView)
 
-        btnToggle.setOnClickListener {
+        setupWebView()
+
+        btnServiceToggle.setOnClickListener {
             if (isServiceBound) {
                 stopSonarService()
             } else {
@@ -76,27 +67,49 @@ class MainActivity : Activity() {
             }
         }
 
-        btnDismissImpact.setOnClickListener {
-            sonarService?.dismissImpactAlert()
-            updateUi()
+        requestBatteryOptimizationExemption()
+        checkPermissionsAndStart()
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            databaseEnabled = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            cacheMode = WebSettings.LOAD_NO_CACHE
         }
 
-        requestBatteryOptimizationExemption()
+        webView.webViewClient = WebViewClient()
+        webView.webChromeClient = WebChromeClient()
+
+        // Inject Native Android Bridge to JavaScript
+        webView.addJavascriptInterface(AndroidNativeBridge(), "AndroidBridge")
+
+        // Load the embedded Minimalist Monochrome Observatory
+        webView.loadUrl("file:///android_asset/observatory/index.html")
     }
 
     override fun onStart() {
         super.onStart()
         bindService(Intent(this, SonarService::class.java), serviceConn, Context.BIND_AUTO_CREATE)
-        uiHandler.post(pollRunnable)
     }
 
     override fun onStop() {
-        uiHandler.removeCallbacks(pollRunnable)
         if (isServiceBound) {
             unbindService(serviceConn)
             isServiceBound = false
         }
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        webView.destroy()
+        super.onDestroy()
     }
 
     private fun checkPermissionsAndStart() {
@@ -123,6 +136,7 @@ class MainActivity : Activity() {
         val intent = Intent(this, SonarService::class.java)
         startForegroundService(intent)
         bindService(intent, serviceConn, Context.BIND_AUTO_CREATE)
+        updateServiceStatusUi()
     }
 
     private fun stopSonarService() {
@@ -133,34 +147,20 @@ class MainActivity : Activity() {
         }
         stopService(intent)
         sonarService = null
-        updateUi()
+        updateServiceStatusUi()
     }
 
-    private fun updateUi() {
-        val s = sonarService
-        if (s == null) {
-            tvStatus.text = "STATUS: STANDBY"
-            tvStatus.setTextColor(0xFF38BDF8.toInt())
-            tvDistance.text = "RANGE: -- m"
-            tvThreat.text = "THREAT: CLEAR"
-            tvThreat.setTextColor(0xFF10B981.toInt())
-            btnToggle.text = "START AETHERSENSE"
-            btnToggle.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF00E5A0.toInt())
-            btnDismissImpact.visibility = View.GONE
-            return
-        }
-
-        btnToggle.text = "STOP AETHERSENSE"
-        btnToggle.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFF64748B.toInt())
-
-        if (s.isImpactAlert) {
-            tvStatus.text = "STATUS: EMERGENCY IMPACT ALERT!"
-            tvStatus.setTextColor(0xFFEF4444.toInt())
-            btnDismissImpact.visibility = View.VISIBLE
+    private fun updateServiceStatusUi() {
+        if (isServiceBound) {
+            tvAppTitle.text = "AETHERSENSE v3.0 // iQOO 15 HARDWARE ACTIVE"
+            btnServiceToggle.text = "STOP SONAR"
+            btnServiceToggle.setBackgroundColor(0xFFFFFFFF.toInt())
+            btnServiceToggle.setTextColor(0xFF000000.toInt())
         } else {
-            btnDismissImpact.visibility = View.GONE
-            tvStatus.text = "STATUS: ACTIVE TRACKING"
-            tvStatus.setTextColor(0xFF00E5A0.toInt())
+            tvAppTitle.text = "AETHERSENSE v3.0 // STANDBY (TAP TO START)"
+            btnServiceToggle.text = "START SONAR"
+            btnServiceToggle.setBackgroundColor(0xFF000000.toInt())
+            btnServiceToggle.setTextColor(0xFFFFFFFF.toInt())
         }
     }
 
@@ -173,6 +173,18 @@ class MainActivity : Activity() {
                 }
                 startActivity(intent)
             } catch (_: Exception) {}
+        }
+    }
+
+    inner class AndroidNativeBridge {
+        @JavascriptInterface
+        fun isServiceRunning(): Boolean = isServiceBound
+
+        @JavascriptInterface
+        fun dismissEmergencyAlert() {
+            runOnUiThread {
+                sonarService?.dismissImpactAlert()
+            }
         }
     }
 

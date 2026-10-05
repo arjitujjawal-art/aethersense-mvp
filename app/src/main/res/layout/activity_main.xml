@@ -3,121 +3,48 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0A0E17"
-    android:padding="24dp">
+    android:background="#FFFFFF">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="AETHERSENSE MVP"
-        android:textColor="#00E5A0"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:fontFamily="monospace" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Offline Ultrasonic FMCW Sonar &amp; Haptic Guard"
-        android:textColor="#8892B0"
-        android:textSize="12sp"
-        android:fontFamily="monospace"
-        android:layout_marginTop="4dp" />
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#1E293B"
-        android:layout_marginVertical="16dp" />
-
-    <!-- Status Card -->
+    <!-- Minimalist Editorial Native Top Bar -->
     <LinearLayout
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#111827"
-        android:padding="16dp">
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:background="#000000"
+        android:paddingHorizontal="16dp"
+        android:gravity="center_vertical">
 
         <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="wrap_content"
+            android:id="@+id/tvAppTitle"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="STATUS: STANDBY"
-            android:textColor="#38BDF8"
-            android:textSize="14sp"
+            android:layout_weight="1"
+            android:text="AETHERSENSE v3.0 // iQOO 15 HARDWARE ACTIVE"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:fontFamily="monospace" />
 
-        <TextView
-            android:id="@+id/tvDistance"
+        <Button
+            android:id="@+id/btnServiceToggle"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="RANGE: -- m"
-            android:textColor="#FFFFFF"
-            android:textSize="28sp"
+            android:layout_height="30dp"
+            android:text="SERVICE: RUNNING"
+            android:textColor="#000000"
+            android:background="#FFFFFF"
+            android:textSize="10sp"
             android:textStyle="bold"
             android:fontFamily="monospace"
-            android:layout_marginTop="8dp" />
-
-        <TextView
-            android:id="@+id/tvThreat"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="THREAT: CLEAR"
-            android:textColor="#10B981"
-            android:textSize="14sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="4dp" />
-
-        <TextView
-            android:id="@+id/tvImu"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="IMU: 9.81 m/s² | ARMED"
-            android:textColor="#94A3B8"
-            android:textSize="12sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="8dp" />
-
-        <TextView
-            android:id="@+id/tvBridge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="WS: ws://127.0.0.1:8080/telemetry"
-            android:textColor="#64748B"
-            android:textSize="11sp"
-            android:fontFamily="monospace"
-            android:layout_marginTop="4dp" />
+            android:paddingHorizontal="10dp" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnToggle"
+    <!-- Full-Featured Hardware-Accelerated Local Observatory WebView -->
+    <WebView
+        android:id="@+id/webView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="START AETHERSENSE"
-        android:backgroundTint="#00E5A0"
-        android:textColor="#05080D"
-        android:textStyle="bold"
-        android:layout_marginTop="20dp" />
-
-    <Button
-        android:id="@+id/btnDismissImpact"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="DISMISS IMPACT ALERT"
-        android:backgroundTint="#EF4444"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"
-        android:visibility="gone"
-        android:layout_marginTop="12dp" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Observatory Connection Guide:\n1. Connect phone via USB\n2. Run: adb forward tcp:8080 tcp:8080\n3. Open observatory/index.html in browser"
-        android:textColor="#475569"
-        android:textSize="12sp"
-        android:fontFamily="monospace"
-        android:layout_marginTop="24dp" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:overScrollMode="never" />
 
 </LinearLayout>
