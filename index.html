@@ -262,14 +262,20 @@
       </div>
     </section>
 
-    <!-- Panel 6: Acoustic Waterfall & Spectrogram -->
+    <!-- Panel 6: Acoustic Environment Mapping & Waterfall -->
     <section class="panel col-6 panel-filter-transit" id="panel-waterfall">
       <header class="panel-header">
-        <h2><span class="panel-header-num">06.</span> RANGE-TIME ACOUSTIC WATERFALL (18.0 – 20.5 kHz)</h2>
-        <span class="readout-pill">60 FRAMES // GRAYSCALE</span>
+        <h2><span class="panel-header-num">06.</span> ACOUSTIC ENVIRONMENT MAPPING &amp; WATERFALL</h2>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <button id="btn-toggle-mapping-mode" class="readout-pill" style="cursor: pointer; background: #000000; color: #FFFFFF;">TOGGLE: 2D SLAM MAP</button>
+          <span class="readout-pill" id="waterfall-status-pill">ENVIRONMENT MAPPING // GRAYSCALE</span>
+        </div>
       </header>
-      <div class="waterfall-row">
-        <canvas id="waterfallCanvas" height="150"></canvas>
+      <div class="waterfall-row" style="position: relative; min-height: 170px;">
+        <!-- Mode A: Range-Time Environment Waterfall with Multi-obstacle reflection tracks -->
+        <canvas id="waterfallCanvas" height="170"></canvas>
+        <!-- Mode B: 2D Acoustic Room SLAM Occupancy Map -->
+        <canvas id="slamCanvas" height="170" style="display: none;"></canvas>
       </div>
     </section>
 
