@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AetherSense Observatory // Active Sonar Telemetry</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Impact Emergency Alert Overlay -->
+  <div id="impact-overlay" class="impact-overlay hidden">
+    <div class="impact-content">
+      <div class="impact-icon">⚠️</div>
+      <div class="impact-title">IMPACT SHOCK DETECTED</div>
+      <div class="impact-subtitle">FREE-FALL TRIPWIRE TRIGGERED // SONAR SUSPENDED</div>
+      <div class="impact-stats" id="impact-stats">ACCEL: 38.5 m/s²</div>
+      <button id="btn-dismiss-overlay" class="btn-overlay-dismiss">DISMISS EMERGENCY ALERT</button>
+    </div>
+  </div>
+
+  <header class="navbar">
+    <div class="nav-brand">
+      <span class="brand-radar-dot"></span>
+      <span class="brand-title">AETHERSENSE OBSERVATORY</span>
+      <span class="brand-tag">ACTIVE SONAR TELEMETRY</span>
+    </div>
+    <div class="nav-status">
+      <a href="aethersense-mvp.apk" download class="btn-apk-download" title="Download Android APK">
+        📥 DOWNLOAD APK (2.6 MB)
+      </a>
+      <span id="conn-badge" class="badge badge-connected">SIMULATOR ACTIVE</span>
+      <span class="badge badge-offline">100% OFFLINE CAPABLE</span>
+      <span id="fps-meter" class="fps-text">60 FPS</span>
+    </div>
+  </header>
+
+  <!-- Hackathon Interactive Judge Controls Banner -->
+  <section class="judge-toolbar">
+    <div class="toolbar-title">
+      <span class="pulse-icon">⚡</span>
+      <strong>INTERACTIVE EVALUATION CONTROLS:</strong>
+    </div>
+    <div class="toolbar-actions">
+      <button id="btn-sim-toggle" class="btn-tool active">MODE: INTERACTIVE SIM</button>
+      <button id="btn-test-approach" class="btn-tool">APPROACH TARGET (HAZARD &lt;0.7m)</button>
+      <button id="btn-test-impact" class="btn-tool btn-danger">TEST FREE-FALL + IMPACT</button>
+      <button id="btn-test-clutter" class="btn-tool">TOGGLE CLUTTER / MULTIPATH</button>
+    </div>
+  </section>
+
+  <main class="dashboard-grid">
+    <!-- Panel 1: Polar Range Radar -->
+    <section class="panel panel-radar">
+      <div class="panel-header">
+        <h2>1. POLAR RANGE RADAR (0.3 – 2.5 m)</h2>
+        <span id="target-readout" class="readout-pill">NO TARGET</span>
+      </div>
+      <div class="canvas-container">
+        <canvas id="radarCanvas"></canvas>
+      </div>
+    </section>
+
+    <!-- Panel 2: System Telemetry HUD -->
+    <section class="panel panel-hud">
+      <div class="panel-header">
+        <h2>2. SYSTEM TELEMETRY HUD</h2>
+        <span class="status-indicator">iQOO 15 (Snapdragon 8 Elite)</span>
+      </div>
+      <div class="hud-grid">
+        <div class="hud-item">
+          <span class="hud-label">SYSTEM STATE</span>
+          <span id="hud-status" class="hud-val text-green">TRACKING</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">CONNECTION</span>
+          <span id="hud-conn" class="hud-val">127.0.0.1:8080 (OFFLINE BRIDGE)</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">DSP LOOP LATENCY</span>
+          <span id="hud-latency" class="hud-val text-cyan">13.2 ms</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">CLOUD THROUGHPUT</span>
+          <span id="hud-cloud" class="hud-val text-green">0.00 KB/s (ISOLATED)</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">ACOUSTIC BAND</span>
+          <span class="hud-val">18.0 – 20.0 kHz (LFM CHIRP)</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">AUDIO CAPTURE</span>
+          <span id="hud-samplerate" class="hud-val">48,000 Hz UNPROCESSED</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">CONFIDENCE (PSR)</span>
+          <span id="hud-psr" class="hud-val text-amber">7.4</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">AUDIO BUFFER HEALTH</span>
+          <span id="hud-buffer" class="hud-val text-green">0 UNDERRUNS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 3: Haptic & IMU Monitor -->
+    <section class="panel panel-imu">
+      <div class="panel-header">
+        <h2>3. HAPTIC &amp; IMU MONITOR</h2>
+        <span id="tripwire-badge" class="badge badge-armed">ARMED / SECURE</span>
+      </div>
+      <div class="imu-content">
+        <div class="haptic-display">
+          <div class="haptic-card">
+            <span class="card-label">HAPTIC ENGINE CADENCE</span>
+            <div id="haptic-level" class="haptic-badge haptic-caution">CAUTION (SLOW PULSE)</div>
+            <div class="cadence-desc" id="haptic-desc">50 ms ON, 400 ms OFF (1.2 – 2.0 m)</div>
+          </div>
+          <div class="threat-ladder">
+            <div class="ladder-step" id="step-hazard">&lt; 0.7m HAZARD (Rapid Pulse)</div>
+            <div class="ladder-step" id="step-warning">0.7 - 1.2m WARNING (Medium Pulse)</div>
+            <div class="ladder-step active" id="step-caution">1.2 - 2.0m CAUTION (Slow Pulse)</div>
+            <div class="ladder-step" id="step-clear">&gt; 2.0m CLEAR (No Feedback)</div>
+          </div>
+        </div>
+
+        <div class="accel-container">
+          <div class="accel-header">
+            <span>IMU ACCELERATION MAGNITUDE:</span>
+            <strong id="accel-val">9.81 m/s²</strong>
+          </div>
+          <canvas id="imuSparkline" height="60"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Panel 4: Real-Time Correlation Oscilloscope & Waterfall -->
+    <section class="panel panel-scope">
+      <div class="panel-header">
+        <h2>4. CORRELATION OSCILLOSCOPE &amp; WATERFALL (0.0 – 3.0 m)</h2>
+        <span id="peak-readout" class="readout-pill">Direct-Path Blanked (0 - 0.3 m)</span>
+      </div>
+      <div class="scope-layout">
+        <div class="scope-row">
+          <canvas id="scopeCanvas" height="150"></canvas>
+        </div>
+        <div class="waterfall-row">
+          <div class="waterfall-title">RANGE-TIME WATERFALL HISTORY (PAST 10 SECONDS)</div>
+          <canvas id="waterfallCanvas" height="110"></canvas>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
