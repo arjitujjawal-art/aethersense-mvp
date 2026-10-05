@@ -1,4 +1,4 @@
-// AetherSense Observatory // Minimalist Monochrome Telemetry Engine & Canvas Renderer
+// AetherSense Observatory // Minimalist Monochrome Telemetry Engine & Grand Finale Simulator v3.0
 (function() {
   'use strict';
 
@@ -9,6 +9,9 @@
   let ws = null;
   let isSimulating = false;
   let simInterval = null;
+
+  // Operating Modes: 'TRANSIT' (Mode A) | 'CARE' (Mode B) | 'IMPACT'
+  let systemMode = 'TRANSIT';
 
   // Telemetry Frame State
   let latestFrame = null;
@@ -22,7 +25,19 @@
   const WATERFALL_ROWS = 60;
   const waterfallBuffer = [];
 
-  // DOM Elements
+  // Respiration History Buffer (Care Mode)
+  const RESP_HISTORY_LEN = 160;
+  const respHistory = new Array(RESP_HISTORY_LEN).fill(0);
+  let respPhase = 0;
+  let respBpm = 16;
+  let respDisplacementMm = 3.4;
+
+  // Web Audio Context for Acoustic Chirp Synthesizer Demonstration
+  let audioCtx = null;
+  let isAudioEnabled = false;
+  let chirpAudioTimer = null;
+
+  // DOM Elements - General & Status
   const elConnBadge = document.getElementById('conn-badge');
   const elFpsMeter = document.getElementById('fps-meter');
   const elTargetReadout = document.getElementById('target-readout');
@@ -31,6 +46,7 @@
   const elHudLatency = document.getElementById('hud-latency');
   const elHudPsr = document.getElementById('hud-psr');
   const elHudBuffer = document.getElementById('hud-buffer');
+  const elHudPhaseAccel = document.getElementById('hud-phase-accel');
   const elHapticLevel = document.getElementById('haptic-level');
   const elHapticDesc = document.getElementById('haptic-desc');
   const elAccelVal = document.getElementById('accel-val');
@@ -38,11 +54,36 @@
   const elImpactOverlay = document.getElementById('impact-overlay');
   const elImpactStats = document.getElementById('impact-stats');
 
-  // Toolbar Buttons
+  // DOM Elements - AI Classifier
+  const elAiClassName = document.getElementById('ai-class-name');
+  const elAiConfidence = document.getElementById('ai-confidence');
+  const barHuman = document.getElementById('bar-human');
+  const barWall = document.getElementById('bar-wall');
+  const barSurge = document.getElementById('bar-surge');
+  const barDrop = document.getElementById('bar-drop');
+  const barClutter = document.getElementById('bar-clutter');
+  const pctHuman = document.getElementById('pct-human');
+  const pctWall = document.getElementById('pct-wall');
+  const pctSurge = document.getElementById('pct-surge');
+  const pctDrop = document.getElementById('pct-drop');
+  const pctClutter = document.getElementById('pct-clutter');
+
+  // DOM Elements - Care & Rest Mode
+  const elCareModeBadge = document.getElementById('care-mode-badge');
+  const elRespRateVal = document.getElementById('resp-rate-val');
+  const elRespStatusText = document.getElementById('resp-status-text');
+  const elRespDispVal = document.getElementById('resp-disp-val');
+  const elRespGuardVal = document.getElementById('resp-guard-val');
+
+  // DOM Elements - Toolbar & Buttons
   const btnSimToggle = document.getElementById('btn-sim-toggle');
+  const btnSwitchTransit = document.getElementById('btn-switch-transit');
+  const btnSwitchCare = document.getElementById('btn-switch-care');
+  const btnTestSurge = document.getElementById('btn-test-surge');
   const btnTestApproach = document.getElementById('btn-test-approach');
   const btnTestImpact = document.getElementById('btn-test-impact');
   const btnTestClutter = document.getElementById('btn-test-clutter');
+  const btnAudioToggle = document.getElementById('btn-audio-toggle');
   const btnDismissOverlay = document.getElementById('btn-dismiss-overlay');
 
   const ladderSteps = {
@@ -61,9 +102,11 @@
   const waterfallCtx = waterfallCanvas.getContext('2d');
   const imuCanvas = document.getElementById('imuSparkline');
   const imuCtx = imuCanvas.getContext('2d');
+  const respirationCanvas = document.getElementById('respirationCanvas');
+  const respCtx = respirationCanvas.getContext('2d');
 
   function resizeCanvases() {
-    [radarCanvas, scopeCanvas, waterfallCanvas, imuCanvas].forEach(c => {
+    [radarCanvas, scopeCanvas, waterfallCanvas, imuCanvas, respirationCanvas].forEach(c => {
       if (!c) return;
       const rect = c.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -74,11 +117,96 @@
   window.addEventListener('resize', resizeCanvases);
   resizeCanvases();
 
-  // ---------------------------------------------------- Simulation State
+  // ---------------------------------------------------- Perspective View Tabs
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const panels = document.querySelectorAll('.dashboard-grid .panel');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+
+      panels.forEach(panel => {
+        if (filter === 'all') {
+          panel.style.display = 'flex';
+          panel.style.opacity = '1';
+        } else if (filter === 'transit') {
+          const isTransit = panel.id === 'panel-radar' || panel.id === 'panel-scope' || panel.id === 'panel-waterfall' || panel.id === 'panel-haptic' || panel.id === 'panel-hud';
+          panel.style.display = isTransit ? 'flex' : 'none';
+        } else if (filter === 'care') {
+          const isCare = panel.id === 'panel-care' || panel.id === 'panel-hud' || panel.id === 'panel-haptic';
+          panel.style.display = isCare ? 'flex' : 'none';
+        } else if (filter === 'ai') {
+          const isAi = panel.id === 'panel-ai' || panel.id === 'panel-radar' || panel.id === 'panel-hud';
+          panel.style.display = isAi ? 'flex' : 'none';
+        } else if (filter === 'rf') {
+          const isRf = panel.id === 'panel-rf' || panel.id === 'panel-hud';
+          panel.style.display = isRf ? 'flex' : 'none';
+        }
+      });
+      resizeCanvases();
+    });
+  });
+
+  // ---------------------------------------------------- Web Audio Synth (Audible Demo)
+  function initAudio() {
+    if (!audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  function playAcousticChirp(dist) {
+    if (!isAudioEnabled || !audioCtx) return;
+    try {
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      // Transpose from 18-20.5 kHz down to human-audible 1.8-2.2 kHz for audio demo
+      const baseFreq = 1800 + Math.max(0, (2.5 - dist)) * 250;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(baseFreq, now);
+      osc.frequency.linearRampToValueAtTime(baseFreq + 350, now + 0.02);
+
+      // Window envelope (Tukey cosine taper)
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.005);
+      gain.gain.linearRampToValueAtTime(0.001, now + 0.02);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.025);
+    } catch(e) {
+      console.warn('Audio synth error', e);
+    }
+  }
+
+  btnAudioToggle.addEventListener('click', () => {
+    initAudio();
+    isAudioEnabled = !isAudioEnabled;
+    if (isAudioEnabled) {
+      btnAudioToggle.textContent = '🔊 AUDIBLE CHIRP SYNTH: ACTIVE';
+      btnAudioToggle.classList.remove('muted');
+    } else {
+      btnAudioToggle.textContent = '🔊 AUDIBLE CHIRP SYNTH: OFF';
+      btnAudioToggle.classList.add('muted');
+    }
+  });
+
+  // ---------------------------------------------------- Simulation State Engine
   let simTargetDist = 1.45;
   let simDistDir = -0.012;
   let simIsCluttered = false;
   let simImpactTriggered = false;
+  let simIsSurging = false;
+  let simPhaseAccel = 0.08;
 
   function startSimulator() {
     if (isSimulating) return;
@@ -106,58 +234,123 @@
   function stepSimulation() {
     if (simImpactTriggered) return;
 
-    simTargetDist += simDistDir;
-    if (simTargetDist < 0.45) { simDistDir = 0.015; }
-    else if (simTargetDist > 2.2) { simDistDir = -0.015; }
-
-    const detected = simTargetDist < 2.0;
-    const threat = simIsCluttered ? 'UNCERTAIN' :
-      (!detected ? 'CLEAR' : (simTargetDist < 0.7 ? 'HAZARD' : (simTargetDist < 1.2 ? 'WARNING' : 'CAUTION')));
-
-    // 100-point correlation curve across 0.0 to 3.0 m
-    const curve = new Array(100).fill(0).map((_, i) => {
-      const binDist = (i / 100) * 3.0;
-      let v = Math.random() * 0.03;
-      if (binDist < 0.3) v = 0.0; // blanked
-      if (detected && Math.abs(binDist - simTargetDist) < 0.16) {
-        v = 0.88 * Math.exp(-Math.pow((binDist - simTargetDist) / 0.06, 2));
+    // Transit Radar Simulation
+    if (systemMode === 'TRANSIT') {
+      if (simIsSurging) {
+        simTargetDist -= 0.08;
+        simPhaseAccel = 2.45 + (Math.random() - 0.5) * 0.3;
+        if (simTargetDist < 0.42) {
+          simIsSurging = false;
+          simDistDir = 0.018;
+        }
+      } else {
+        simTargetDist += simDistDir;
+        simPhaseAccel = 0.08 + (Math.random() - 0.5) * 0.06;
+        if (simTargetDist < 0.45) { simDistDir = 0.015; }
+        else if (simTargetDist > 2.4) { simDistDir = -0.015; }
       }
-      if (simIsCluttered && Math.abs(binDist - 1.85) < 0.16) {
-        v = Math.max(v, 0.72 * Math.exp(-Math.pow((binDist - 1.85) / 0.06, 2)));
-      }
-      return v;
-    });
 
-    const frame = {
-      timestamp: Date.now(),
-      status: simIsCluttered ? 'UNCERTAIN' : (detected ? 'TRACKING' : 'SEARCHING'),
-      target: {
-        detected: detected,
-        distance_m: detected ? simTargetDist : -1,
-        confidence_psr: detected ? 6.8 + Math.random() * 1.2 : 2.1,
-        threat_level: threat,
-        velocity_mps: simDistDir * 10
-      },
-      imu: {
-        acc_magnitude: 9.81 + (Math.random() - 0.5) * 0.3,
-        is_impact: false
-      },
-      telemetry: {
-        dsp_latency_ms: 12.8 + Math.random() * 1.5,
-        audio_sample_rate: 48000,
-        cloud_bytes_sec: 0,
-        audio_source: 'UNPROCESSED',
-        underruns: 0
-      },
-      dsp: {
-        correlation_curve: curve
-      }
-    };
+      const detected = simTargetDist < 2.2;
+      const isSurgeHazard = simPhaseAccel > 1.8;
+      const threat = isSurgeHazard ? 'HAZARD' : (simIsCluttered ? 'UNCERTAIN' :
+        (!detected ? 'CLEAR' : (simTargetDist < 0.7 ? 'HAZARD' : (simTargetDist < 1.2 ? 'WARNING' : 'CAUTION'))));
 
-    onFrameReceived(frame);
+      // 100-point correlation curve across 0.0 to 3.0 m
+      const curve = new Array(100).fill(0).map((_, i) => {
+        const binDist = (i / 100) * 3.0;
+        let v = Math.random() * 0.03;
+        if (binDist < 0.3) v = 0.0; // blanked
+        if (detected && Math.abs(binDist - simTargetDist) < 0.16) {
+          v = 0.88 * Math.exp(-Math.pow((binDist - simTargetDist) / 0.06, 2));
+        }
+        if (simIsCluttered && Math.abs(binDist - 1.85) < 0.16) {
+          v = Math.max(v, 0.72 * Math.exp(-Math.pow((binDist - 1.85) / 0.06, 2)));
+        }
+        return v;
+      });
+
+      // Periodic chirp sound trigger
+      if (Math.random() < 0.4) {
+        playAcousticChirp(simTargetDist);
+      }
+
+      const frame = {
+        timestamp: Date.now(),
+        mode: 'TRANSIT',
+        status: isSurgeHazard ? 'SURGE_HAZARD' : (simIsCluttered ? 'UNCERTAIN' : (detected ? 'TRACKING' : 'SEARCHING')),
+        target: {
+          detected: detected,
+          distance_m: detected ? simTargetDist : -1,
+          confidence_psr: detected ? 6.8 + Math.random() * 1.2 : 2.1,
+          threat_level: threat,
+          velocity_mps: (simDistDir * 10) - (simIsSurging ? 1.4 : 0),
+          phase_accel_rad_s2: simPhaseAccel
+        },
+        imu: {
+          acc_magnitude: 9.81 + (Math.random() - 0.5) * 0.35,
+          is_impact: false
+        },
+        telemetry: {
+          dsp_latency_ms: 12.8 + Math.random() * 1.2,
+          npu_latency_ms: 3.2,
+          audio_sample_rate: 48000,
+          cloud_bytes_sec: 0,
+          audio_source: 'UNPROCESSED',
+          underruns: 0
+        },
+        dsp: {
+          correlation_curve: curve
+        }
+      };
+
+      onFrameReceived(frame);
+
+    } else if (systemMode === 'CARE') {
+      // Care & Rest Mode: Contactless Respiration simulation
+      respPhase += (respBpm / 60) * (Math.PI * 2) * 0.1;
+      const breathingWave = Math.sin(respPhase) * (respDisplacementMm * 0.4) + (Math.sin(respPhase * 2.3) * 0.15);
+      respHistory.push(breathingWave);
+      if (respHistory.length > RESP_HISTORY_LEN) respHistory.shift();
+
+      const frame = {
+        timestamp: Date.now(),
+        mode: 'CARE',
+        status: 'CARE_MONITORING',
+        target: {
+          detected: false,
+          distance_m: 0.45,
+          confidence_psr: 9.2,
+          threat_level: 'CLEAR',
+          velocity_mps: 0,
+          phase_accel_rad_s2: 0.02
+        },
+        respiration: {
+          bpm: respBpm,
+          displacement_mm: respDisplacementMm + (Math.random() - 0.5) * 0.2,
+          status: 'NORMAL'
+        },
+        imu: {
+          acc_magnitude: 9.81 + (Math.random() - 0.5) * 0.04, // Stillness
+          is_impact: false
+        },
+        telemetry: {
+          dsp_latency_ms: 8.4,
+          npu_latency_ms: 3.2,
+          audio_sample_rate: 48000,
+          cloud_bytes_sec: 0,
+          audio_source: 'CW_20KHZ_PILOT',
+          underruns: 0
+        },
+        dsp: {
+          correlation_curve: new Array(100).fill(0).map((_, i) => Math.max(0, Math.sin(i * 0.08) * 0.12))
+        }
+      };
+
+      onFrameReceived(frame);
+    }
   }
 
-  // ---------------------------------------------------- WebSocket Client
+  // ---------------------------------------------------- WebSocket Bridge
   let wsTimeout = null;
 
   function connectWs() {
@@ -172,10 +365,9 @@
       return;
     }
 
-    // Auto-fallback to simulation after 1.5s if phone not connected
     wsTimeout = setTimeout(() => {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        console.log('No local phone connected on ws://127.0.0.1:8080. Running Interactive Simulator.');
+        console.log('No phone connected on ws://127.0.0.1:8080. Running Interactive Simulator.');
         startSimulator();
       }
     }, 1500);
@@ -189,17 +381,8 @@
       btnSimToggle.classList.remove('active');
     };
 
-    ws.onclose = () => {
-      if (!isSimulating) {
-        fallbackToSim();
-      }
-    };
-
-    ws.onerror = () => {
-      if (!isSimulating) {
-        fallbackToSim();
-      }
-    };
+    ws.onclose = () => { if (!isSimulating) fallbackToSim(); };
+    ws.onerror = () => { if (!isSimulating) fallbackToSim(); };
 
     ws.onmessage = (event) => {
       try {
@@ -232,9 +415,10 @@
     }
 
     updateHud(frame);
+    updateAiClassification(frame);
   }
 
-  // ---------------------------------------------------- HUD & DOM Updates
+  // ---------------------------------------------------- HUD & Classification Updates
   function updateHud(f) {
     if (!f) return;
 
@@ -247,11 +431,16 @@
 
     if (f.target) {
       elHudPsr.textContent = f.target.confidence_psr > 0 ? f.target.confidence_psr.toFixed(1) : '--';
+      if (typeof f.target.phase_accel_rad_s2 === 'number') {
+        const pa = f.target.phase_accel_rad_s2;
+        elHudPhaseAccel.textContent = `${pa.toFixed(2)} rad/s² ${pa > 1.8 ? '[SURGE!]' : '[STEADY]'}`;
+      }
+
       if (f.target.detected && f.target.distance_m > 0) {
         const d = f.target.distance_m;
         const threat = f.target.threat_level || 'CLEAR';
         elTargetReadout.textContent = `TARGET: ${d.toFixed(2)} m [${threat}]`;
-        if (d < 0.7) {
+        if (d < 0.7 || threat === 'HAZARD') {
           elTargetReadout.style.backgroundColor = '#000000';
           elTargetReadout.style.color = '#FFFFFF';
         } else {
@@ -259,7 +448,7 @@
           elTargetReadout.style.color = '#000000';
         }
       } else {
-        elTargetReadout.textContent = f.status === 'UNCERTAIN' ? 'UNCERTAIN / MULTIPATH' : 'SEARCHING (NO TARGET)';
+        elTargetReadout.textContent = f.status === 'UNCERTAIN' ? 'UNCERTAIN / MULTIPATH' : 'SEARCHING (NO OBSTACLE)';
         elTargetReadout.style.backgroundColor = '#FFFFFF';
         elTargetReadout.style.color = '#525252';
       }
@@ -267,6 +456,13 @@
 
     const threat = (f.target && f.target.threat_level) || 'CLEAR';
     updateHapticDisplay(threat);
+
+    if (f.respiration && systemMode === 'CARE') {
+      elRespRateVal.textContent = `${f.respiration.bpm} BPM`;
+      elRespDispVal.textContent = `${f.respiration.displacement_mm.toFixed(1)} mm`;
+      elRespStatusText.textContent = 'RESTING RHYTHM // CHEST IN-CONTACT';
+      elCareModeBadge.textContent = 'MODE B: CARE (CW 20 kHz)';
+    }
 
     if (f.imu) {
       elAccelVal.textContent = `${f.imu.acc_magnitude.toFixed(2)} m/s²`;
@@ -289,7 +485,7 @@
     switch (threat) {
       case 'HAZARD':
         elHapticLevel.textContent = 'HAZARD (RAPID PULSE)';
-        elHapticDesc.textContent = '100 ms ON, 80 ms OFF (< 0.7 m)';
+        elHapticDesc.textContent = '100 ms ON, 80 ms OFF (< 0.7 m or Surge)';
         ladderSteps.HAZARD && ladderSteps.HAZARD.classList.add('active');
         break;
       case 'WARNING':
@@ -314,15 +510,78 @@
     }
   }
 
-  // ---------------------------------------------------- Interactive Judge Controls
+  function updateAiClassification(f) {
+    if (!f) return;
+
+    let pHuman = 4, pWall = 3, pSurge = 1, pDrop = 1, pClutter = 2;
+    let className = 'SEARCHING / AMBIENT';
+
+    if (f.target && f.target.phase_accel_rad_s2 > 1.8) {
+      className = 'FAST SURGE (E-BIKE / VEHICLE)';
+      pSurge = 96; pHuman = 2; pWall = 1; pDrop = 0; pClutter = 1;
+    } else if (f.status === 'IMPACT_ALERT') {
+      className = 'OPEN DROP-OFF / FALL SHOCK';
+      pDrop = 98; pHuman = 1; pWall = 0; pSurge = 0; pClutter = 1;
+    } else if (simIsCluttered) {
+      className = 'ROOM MULTIPATH CLUTTER';
+      pClutter = 92; pHuman = 3; pWall = 3; pSurge = 1; pDrop = 1;
+    } else if (f.target && f.target.detected) {
+      if (f.target.distance_m < 0.8) {
+        className = 'SOLID BARRIER / WALL';
+        pWall = 94; pHuman = 4; pSurge = 1; pDrop = 0; pClutter = 1;
+      } else {
+        className = 'HUMAN / PEDESTRIAN';
+        pHuman = 97; pWall = 2; pSurge = 0; pDrop = 0; pClutter = 1;
+      }
+    }
+
+    elAiClassName.textContent = className;
+    elAiConfidence.textContent = `${Math.max(pHuman, pWall, pSurge, pDrop, pClutter)}% CONFIDENCE`;
+
+    barHuman.style.width = `${pHuman}%`; pctHuman.textContent = `${pHuman}%`;
+    barWall.style.width = `${pWall}%`; pctWall.textContent = `${pWall}%`;
+    barSurge.style.width = `${pSurge}%`; pctSurge.textContent = `${pSurge}%`;
+    barDrop.style.width = `${pDrop}%`; pctDrop.textContent = `${pDrop}%`;
+    barClutter.style.width = `${pClutter}%`; pctClutter.textContent = `${pClutter}%`;
+  }
+
+  // ---------------------------------------------------- Interactive Controls
   btnSimToggle.addEventListener('click', () => {
     if (isSimulating) stopSimulator();
     else startSimulator();
   });
 
-  btnTestApproach.addEventListener('click', () => {
+  btnSwitchTransit.addEventListener('click', () => {
+    systemMode = 'TRANSIT';
+    btnSwitchTransit.classList.add('active');
+    btnSwitchCare.classList.remove('active');
+    elCareModeBadge.textContent = 'STANDBY (AWAITING STILLNESS)';
+    startSimulator();
+  });
+
+  btnSwitchCare.addEventListener('click', () => {
+    systemMode = 'CARE';
+    btnSwitchCare.classList.add('active');
+    btnSwitchTransit.classList.remove('active');
+    elCareModeBadge.textContent = 'MODE B: ACTIVE (CW 20 kHz)';
+    startSimulator();
+  });
+
+  btnTestSurge.addEventListener('click', () => {
+    systemMode = 'TRANSIT';
+    btnSwitchTransit.classList.add('active');
+    btnSwitchCare.classList.remove('active');
     if (!isSimulating) startSimulator();
-    simTargetDist = 0.52; // Force to hazard distance immediately
+    simIsSurging = true;
+    simTargetDist = 2.1;
+  });
+
+  btnTestApproach.addEventListener('click', () => {
+    systemMode = 'TRANSIT';
+    btnSwitchTransit.classList.add('active');
+    btnSwitchCare.classList.remove('active');
+    if (!isSimulating) startSimulator();
+    simTargetDist = 0.52;
     simDistDir = -0.005;
   });
 
@@ -336,24 +595,22 @@
     if (!isSimulating) startSimulator();
     simImpactTriggered = true;
 
-    // Simulate free-fall then shock sequence
+    // Simulate free-fall (<0.2g) then shock (>3.0g) sequence
     let step = 0;
     const impactInterval = setInterval(() => {
       step++;
       if (step <= 3) {
-        // Free-fall: 1.2 m/s²
-        imuHistory.push(1.2);
+        imuHistory.push(1.2); // Free-fall
       } else {
-        // Impact shock: 38.5 m/s²
-        imuHistory.push(38.5);
+        imuHistory.push(38.5); // Impact shock
         clearInterval(impactInterval);
 
         onFrameReceived({
           timestamp: Date.now(),
           status: 'IMPACT_ALERT',
-          target: { detected: false, distance_m: -1, confidence_psr: 0, threat_level: 'IMPACT', velocity_mps: 0 },
+          target: { detected: false, distance_m: -1, confidence_psr: 0, threat_level: 'IMPACT', velocity_mps: 0, phase_accel_rad_s2: 0 },
           imu: { acc_magnitude: 38.5, is_impact: true },
-          telemetry: { dsp_latency_ms: 0, audio_sample_rate: 48000, cloud_bytes_sec: 0, underruns: 0 },
+          telemetry: { dsp_latency_ms: 0, npu_latency_ms: 0, audio_sample_rate: 48000, cloud_bytes_sec: 0, underruns: 0 },
           dsp: { correlation_curve: new Array(100).fill(0) }
         });
       }
@@ -368,7 +625,7 @@
     elTripwireBadge.className = 'badge badge-armed';
   });
 
-  // ---------------------------------------------------- Render Loop
+  // ---------------------------------------------------- Render Loops
   let sweepAngle = 0;
 
   function render(time) {
@@ -384,11 +641,12 @@
     drawScope();
     drawWaterfall();
     drawImu();
+    drawRespiration();
 
     requestAnimationFrame(render);
   }
 
-  // ---------------------------------------------------- 1. Monochrome Polar Radar
+  // ---------------------------------------------------- 1. Polar Radar
   function drawRadar(time) {
     const w = radarCanvas.width;
     const h = radarCanvas.height;
@@ -399,7 +657,7 @@
     const cx = w / 2;
     const cy = h * 0.88;
     const maxRadius = Math.min(w * 0.45, h * 0.78);
-    const maxRangeM = 2.5;
+    const maxRangeM = 3.0;
 
     radarCtx.save();
 
@@ -413,7 +671,7 @@
     radarCtx.stroke();
 
     // Concentric range rings
-    const rings = [0.5, 1.0, 1.5, 2.0, 2.5];
+    const rings = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
     radarCtx.lineWidth = 1;
     rings.forEach(r => {
       const radius = (r / maxRangeM) * maxRadius;
@@ -422,7 +680,6 @@
       radarCtx.strokeStyle = '#E5E5E5';
       radarCtx.stroke();
 
-      // Range text labels
       radarCtx.fillStyle = '#525252';
       radarCtx.font = `500 ${Math.max(10, Math.floor(w * 0.024))}px "JetBrains Mono", monospace`;
       radarCtx.textAlign = 'left';
@@ -446,7 +703,6 @@
     const sectorAngle = (Math.sin(sweepAngle) * 0.9 - Math.PI / 2);
     const sweepRadius = maxRadius;
 
-    // Wedge gradient
     const grad = radarCtx.createRadialGradient(cx, cy, 0, cx, cy, sweepRadius);
     grad.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
     grad.addColorStop(1, 'rgba(0, 0, 0, 0.01)');
@@ -458,7 +714,7 @@
     radarCtx.fillStyle = grad;
     radarCtx.fill();
 
-    // Sharp sweep line
+    // Sharp sweep front line
     radarCtx.beginPath();
     radarCtx.moveTo(cx, cy);
     radarCtx.lineTo(cx + Math.cos(sectorAngle) * sweepRadius, cy + Math.sin(sectorAngle) * sweepRadius);
@@ -466,21 +722,21 @@
     radarCtx.lineWidth = 1.5;
     radarCtx.stroke();
 
-    // Phone / Emitter origin
+    // Emitter origin
     radarCtx.fillStyle = '#000000';
     radarCtx.fillRect(cx - 5, cy - 5, 10, 10);
     radarCtx.font = '700 10px "JetBrains Mono", monospace';
     radarCtx.textAlign = 'center';
     radarCtx.fillText('iQOO 15', cx, cy + 18);
 
-    // Target Blip: High-contrast architectural crosshair & callout
+    // Target Blip
     if (latestFrame && latestFrame.target && latestFrame.target.detected && latestFrame.target.distance_m > 0) {
       const d = latestFrame.target.distance_m;
       const blipRadius = (d / maxRangeM) * maxRadius;
       const blipX = cx;
       const blipY = cy - blipRadius;
 
-      // Pulsing outer indicator
+      // Pulsing outer ring
       radarCtx.beginPath();
       radarCtx.arc(blipX, blipY, 12 + Math.sin(time * 0.01) * 3, 0, Math.PI * 2);
       radarCtx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
@@ -497,21 +753,19 @@
       radarCtx.moveTo(blipX, blipY + 5); radarCtx.lineTo(blipX, blipY + 12);
       radarCtx.stroke();
 
-      // Solid central marker
+      // Solid central blip
       radarCtx.beginPath();
       radarCtx.arc(blipX, blipY, 4, 0, Math.PI * 2);
       radarCtx.fillStyle = '#000000';
       radarCtx.fill();
 
-      // Inverted distance tag box
-      const tagText = `${d.toFixed(2)} m`;
+      // Inverted distance tag
+      const tagText = `${d.toFixed(2)} m ${latestFrame.target.phase_accel_rad_s2 > 1.8 ? '[SURGE]' : ''}`;
       radarCtx.font = '700 11px "JetBrains Mono", monospace';
       const textWidth = radarCtx.measureText(tagText).width;
-      const boxW = textWidth + 16;
-      const boxH = 20;
 
       radarCtx.fillStyle = '#000000';
-      radarCtx.fillRect(blipX + 16, blipY - 10, boxW, boxH);
+      radarCtx.fillRect(blipX + 16, blipY - 10, textWidth + 16, 20);
 
       radarCtx.fillStyle = '#FFFFFF';
       radarCtx.textAlign = 'left';
@@ -521,7 +775,7 @@
     radarCtx.restore();
   }
 
-  // ---------------------------------------------------- 2. Correlation Oscilloscope
+  // ---------------------------------------------------- 2. Correlation Scope
   function drawScope() {
     const w = scopeCanvas.width;
     const h = scopeCanvas.height;
@@ -538,12 +792,10 @@
     const plotW = w - padLeft - padRight;
     const plotH = h - padTop - padBottom;
 
-    // Outer framing box
     scopeCtx.lineWidth = 1;
     scopeCtx.strokeStyle = '#000000';
     scopeCtx.strokeRect(padLeft, padTop, plotW, plotH);
 
-    // Range subdivisions & distance labels
     for (let m = 0; m <= 3.0; m += 0.5) {
       const x = padLeft + (m / 3.0) * plotW;
       scopeCtx.beginPath();
@@ -558,7 +810,7 @@
       scopeCtx.fillText(`${m.toFixed(1)}m`, x, h - 8);
     }
 
-    // Direct-path blanking zone (0 – 0.3 m) with architectural diagonal hatching
+    // Direct-path blanking zone (0 – 0.3 m)
     const blankX = padLeft + (0.3 / 3.0) * plotW;
     scopeCtx.save();
     scopeCtx.beginPath();
@@ -567,8 +819,7 @@
 
     scopeCtx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
     scopeCtx.lineWidth = 1;
-    const step = 8;
-    for (let x = padLeft - plotH; x < blankX + plotH; x += step) {
+    for (let x = padLeft - plotH; x < blankX + plotH; x += 8) {
       scopeCtx.beginPath();
       scopeCtx.moveTo(x, padTop + plotH);
       scopeCtx.lineTo(x + plotH, padTop);
@@ -576,7 +827,6 @@
     }
     scopeCtx.restore();
 
-    // Blanking zone boundary line
     scopeCtx.beginPath();
     scopeCtx.moveTo(blankX, padTop);
     scopeCtx.lineTo(blankX, padTop + plotH);
@@ -589,7 +839,7 @@
     scopeCtx.textAlign = 'left';
     scopeCtx.fillText('BLANKED (0–0.3m)', padLeft + 4, padTop + 14);
 
-    // Threshold reference line (mu + 4.5 sigma)
+    // Threshold line
     const yThresh = padTop + plotH * 0.70;
     scopeCtx.setLineDash([4, 4]);
     scopeCtx.strokeStyle = '#737373';
@@ -604,7 +854,7 @@
     scopeCtx.textAlign = 'right';
     scopeCtx.fillText('THRESHOLD (μ + 4.5σ)', padLeft + plotW - 8, yThresh - 4);
 
-    // Normalized correlation curve trace
+    // Correlation trace
     const curve = (latestFrame && latestFrame.dsp && latestFrame.dsp.correlation_curve) || null;
     if (curve && curve.length > 0) {
       scopeCtx.beginPath();
@@ -620,18 +870,15 @@
       }
       scopeCtx.stroke();
 
-      // Peak blip callout
       if (latestFrame.target && latestFrame.target.detected && latestFrame.target.distance_m > 0) {
         const d = latestFrame.target.distance_m;
         const peakX = padLeft + (d / 3.0) * plotW;
         const bin = Math.min(curve.length - 1, Math.max(0, Math.round((d / 3.0) * curve.length)));
         const peakY = padTop + plotH - Math.max(0, Math.min(1, curve[bin] || 0.5)) * plotH;
 
-        // Solid black peak square
         scopeCtx.fillStyle = '#000000';
         scopeCtx.fillRect(peakX - 4, peakY - 4, 8, 8);
 
-        // Vertical drop line to baseline
         scopeCtx.setLineDash([2, 3]);
         scopeCtx.strokeStyle = '#000000';
         scopeCtx.beginPath();
@@ -640,7 +887,6 @@
         scopeCtx.stroke();
         scopeCtx.setLineDash([]);
 
-        // Peak callout badge
         const calloutText = `PEAK: ${d.toFixed(2)}m (PSR: ${latestFrame.target.confidence_psr.toFixed(1)})`;
         scopeCtx.font = '700 9px "JetBrains Mono", monospace';
         const cWidth = scopeCtx.measureText(calloutText).width;
@@ -655,7 +901,7 @@
     }
   }
 
-  // ---------------------------------------------------- 3. Monochrome Waterfall
+  // ---------------------------------------------------- 3. Grayscale Waterfall
   function drawWaterfall() {
     const w = waterfallCanvas.width;
     const h = waterfallCanvas.height;
@@ -675,7 +921,6 @@
       for (let c = 0; c < cols; c++) {
         const val = Math.max(0, Math.min(1, curve[c]));
         const intensity = Math.pow(val, 0.65);
-        // Map 0 to pure white (255) and 1 to pure black (0)
         const gray = Math.max(0, Math.min(255, Math.floor(255 - intensity * 255)));
 
         waterfallCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
@@ -683,7 +928,6 @@
       }
     }
 
-    // Outer framing rule
     waterfallCtx.strokeStyle = '#000000';
     waterfallCtx.lineWidth = 1;
     waterfallCtx.strokeRect(0, 0, w, h);
@@ -699,7 +943,6 @@
     imuCtx.fillStyle = '#FFFFFF';
     imuCtx.fillRect(0, 0, w, h);
 
-    // 9.81 m/s² gravity reference rule
     const gY = h * 0.65;
     imuCtx.strokeStyle = '#A3A3A3';
     imuCtx.lineWidth = 1;
@@ -715,29 +958,74 @@
     imuCtx.textAlign = 'right';
     imuCtx.fillText('9.81 m/s² (1.0g BASELINE)', w - 8, gY - 4);
 
-    // Sparkline waveform
     imuCtx.beginPath();
     imuCtx.strokeStyle = '#000000';
     imuCtx.lineWidth = 1.8;
 
-    let lastX = 0;
-    let lastY = gY;
+    let lastX = 0, lastY = gY;
     for (let i = 0; i < imuHistory.length; i++) {
       const x = (i / (imuHistory.length - 1)) * w;
       const val = imuHistory[i];
       const y = h - (val / 40.0) * h;
       if (i === 0) imuCtx.moveTo(x, y);
       else imuCtx.lineTo(x, y);
-      lastX = x;
-      lastY = y;
+      lastX = x; lastY = y;
     }
     imuCtx.stroke();
 
-    // Current point dot
     imuCtx.beginPath();
     imuCtx.arc(lastX - 2, lastY, 3, 0, Math.PI * 2);
     imuCtx.fillStyle = '#000000';
     imuCtx.fill();
+  }
+
+  // ---------------------------------------------------- 5. Care Mode Respiration Waveform
+  function drawRespiration() {
+    const w = respirationCanvas.width;
+    const h = respirationCanvas.height;
+    if (w === 0 || h === 0) return;
+
+    respCtx.clearRect(0, 0, w, h);
+    respCtx.fillStyle = '#FFFFFF';
+    respCtx.fillRect(0, 0, w, h);
+
+    const midY = h * 0.5;
+
+    // Midline zero reference
+    respCtx.strokeStyle = '#E5E5E5';
+    respCtx.lineWidth = 1;
+    respCtx.beginPath();
+    respCtx.moveTo(0, midY);
+    respCtx.lineTo(w, midY);
+    respCtx.stroke();
+
+    // Sinusoidal chest displacement trace
+    respCtx.beginPath();
+    respCtx.strokeStyle = '#000000';
+    respCtx.lineWidth = 2.2;
+
+    let lastX = 0, lastY = midY;
+    for (let i = 0; i < respHistory.length; i++) {
+      const x = (i / (respHistory.length - 1)) * w;
+      const val = respHistory[i];
+      const y = midY - (val / 3.0) * (h * 0.42);
+      if (i === 0) respCtx.moveTo(x, y);
+      else respCtx.lineTo(x, y);
+      lastX = x; lastY = y;
+    }
+    respCtx.stroke();
+
+    // Lead point pulse dot
+    respCtx.beginPath();
+    respCtx.arc(lastX - 2, lastY, 4, 0, Math.PI * 2);
+    respCtx.fillStyle = '#000000';
+    respCtx.fill();
+
+    // Callout
+    respCtx.fillStyle = '#525252';
+    respCtx.font = '500 9px "JetBrains Mono", monospace';
+    respCtx.textAlign = 'right';
+    respCtx.fillText('PHASE UNWRAPPED DISPLACEMENT (0.1–0.5 Hz)', w - 8, h - 6);
   }
 
   // Connect automatically, or auto-fallback to simulator

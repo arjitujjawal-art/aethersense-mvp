@@ -1,9 +1,10 @@
 /* ==========================================================================
    AETHERSENSE OBSERVATORY // MINIMALIST MONOCHROME DESIGN SYSTEM
-   Editorial, Architectural, Timeless, Austere, Uncompromising
+   Full Technical Specification v3.0 // Grand Finale Blueprint
+   Acoustic Radar • Care & Rest Mode • On-Device AI • Passive RF Context
    ========================================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap');
 
 :root {
   /* Strict Monochrome Color Tokens */
@@ -11,13 +12,8 @@
   --foreground: #000000;
   --muted: #F5F5F5;
   --muted-foreground: #525252;
-  --accent: #000000;
-  --accent-foreground: #FFFFFF;
-  --border: #000000;
   --border-light: #E5E5E5;
   --card: #FFFFFF;
-  --card-foreground: #000000;
-  --ring: #000000;
 
   /* Typography Stacks */
   --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
@@ -97,7 +93,7 @@ body::after {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  padding: 20px 32px;
+  padding: 18px 32px;
   background-color: var(--background);
   border-bottom: 2px solid var(--foreground);
 }
@@ -129,7 +125,7 @@ body::after {
 .brand-tag {
   font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.15em;
   color: var(--muted-foreground);
   text-transform: uppercase;
@@ -140,7 +136,7 @@ body::after {
 .nav-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -153,7 +149,7 @@ body::after {
   background-color: var(--foreground);
   color: var(--background);
   text-decoration: none;
-  padding: 8px 16px;
+  padding: 8px 14px;
   border: 2px solid var(--foreground);
   transition: all 0.08s ease-in-out;
   display: inline-flex;
@@ -168,7 +164,7 @@ body::after {
 
 .badge {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -219,11 +215,11 @@ body::after {
 }
 
 /* ==========================================================================
-   EDITORIAL HERO STATEMENT (Oversized Typography & Geometric Accents)
+   EDITORIAL HERO STATEMENT
    ========================================================================== */
 
 .editorial-hero {
-  padding: 40px 32px 32px 32px;
+  padding: 36px 32px 28px 32px;
   border-bottom: 4px solid var(--foreground);
   background-color: var(--background);
   position: relative;
@@ -238,9 +234,11 @@ body::after {
   letter-spacing: 0.15em;
   color: var(--muted-foreground);
   text-transform: uppercase;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-light);
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .hero-headline-container {
@@ -260,9 +258,9 @@ body::after {
 
 .hero-title {
   font-family: var(--font-display);
-  font-size: clamp(38px, 6vw, 76px);
+  font-size: clamp(34px, 5.5vw, 68px);
   font-weight: 900;
-  line-height: 0.95;
+  line-height: 0.98;
   letter-spacing: -0.04em;
   text-transform: uppercase;
   color: var(--foreground);
@@ -270,18 +268,18 @@ body::after {
 
 .hero-subtitle {
   font-family: var(--font-body);
-  font-size: clamp(15px, 1.6vw, 19px);
+  font-size: clamp(15px, 1.5vw, 18px);
   font-style: italic;
   color: var(--muted-foreground);
-  max-width: 900px;
-  margin-top: 10px;
+  max-width: 950px;
+  margin-top: 8px;
 }
 
 .hero-deco-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .hero-deco-line {
@@ -297,7 +295,46 @@ body::after {
 }
 
 /* ==========================================================================
-   INTERACTIVE JUDGE EVALUATION CONTROLS
+   PERSPECTIVE VIEW FILTER TABS
+   ========================================================================== */
+
+.view-tabs-bar {
+  display: flex;
+  background-color: var(--background);
+  border-bottom: 2px solid var(--foreground);
+  padding: 0 32px;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border-light);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.08s ease-in-out;
+}
+
+.tab-btn:hover {
+  color: var(--foreground);
+  background-color: var(--muted);
+}
+
+.tab-btn.active {
+  color: var(--background);
+  background-color: var(--foreground);
+  font-weight: 700;
+}
+
+/* ==========================================================================
+   INTERACTIVE JUDGE EVALUATION TOOLBAR
    ========================================================================== */
 
 .judge-toolbar {
@@ -305,10 +342,10 @@ body::after {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 14px;
   background-color: var(--muted);
   border-bottom: 2px solid var(--foreground);
-  padding: 14px 32px;
+  padding: 12px 32px;
 }
 
 .toolbar-title {
@@ -332,7 +369,7 @@ body::after {
 
 .toolbar-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -345,7 +382,7 @@ body::after {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 8px 16px;
+  padding: 7px 14px;
   cursor: pointer;
   transition: all 0.08s ease-in-out;
 }
@@ -365,9 +402,16 @@ body::after {
   border: 2px solid var(--foreground);
 }
 
-.btn-tool.btn-danger:hover {
-  background-color: var(--foreground);
-  color: var(--background);
+.btn-tool.btn-audio {
+  border: 2px solid var(--foreground);
+  background-color: #000000;
+  color: #FFFFFF;
+}
+
+.btn-tool.btn-audio.muted {
+  background-color: #FFFFFF;
+  color: #000000;
+  border: 1px dashed var(--foreground);
 }
 
 /* ==========================================================================
@@ -376,35 +420,42 @@ body::after {
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-gap: 32px;
+  grid-template-columns: repeat(12, 1fr);
+  grid-gap: 28px;
   padding: 32px;
-  max-width: 1600px;
+  max-width: 1650px;
   margin: 0 auto;
 }
+
+.col-6 { grid-column: span 6; }
+.col-4 { grid-column: span 4; }
+.col-8 { grid-column: span 8; }
+.col-12 { grid-column: span 12; }
 
 .panel {
   background-color: var(--card);
   border: 2px solid var(--foreground);
-  padding: 24px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: transform 0.1s ease-in-out;
+  transition: opacity 0.15s ease-in-out;
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--foreground);
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .panel-header h2 {
   font-family: var(--font-display);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-transform: uppercase;
@@ -414,7 +465,7 @@ body::after {
 .panel-header-num {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
   margin-right: 8px;
   color: var(--muted-foreground);
 }
@@ -431,9 +482,14 @@ body::after {
   color: var(--foreground);
 }
 
+.readout-pill.inverted {
+  background-color: var(--foreground);
+  color: var(--background);
+}
+
 .status-indicator {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.05em;
   color: var(--muted-foreground);
 }
@@ -456,7 +512,7 @@ canvas {
 }
 
 /* ==========================================================================
-   SYSTEM TELEMETRY HUD (Inverted & High-Contrast Precision Grid)
+   SYSTEM TELEMETRY HUD
    ========================================================================== */
 
 .hud-grid {
@@ -495,7 +551,7 @@ canvas {
 
 .hud-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   color: var(--muted-foreground);
   letter-spacing: 0.12em;
@@ -510,9 +566,232 @@ canvas {
   color: var(--foreground);
 }
 
-/* Semantic Monochrome Text Helpers */
-.text-bold { font-weight: 700; }
-.text-muted { color: var(--muted-foreground); }
+/* ==========================================================================
+   CARE & REST MODE: CONTACTLESS RESPIRATION MONITOR
+   ========================================================================== */
+
+.respiration-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.respiration-hero-stats {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  grid-gap: 12px;
+}
+
+.resp-stat-card {
+  border: 1px solid var(--foreground);
+  padding: 12px 14px;
+  background-color: var(--background);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.resp-stat-card.inverted {
+  background-color: var(--foreground);
+  color: var(--background);
+}
+
+.resp-stat-card.inverted .card-label {
+  color: #A3A3A3;
+}
+
+.resp-val-large {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+  margin: 6px 0;
+  letter-spacing: -0.02em;
+}
+
+.resp-subtext {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+
+.resp-stat-card.inverted .resp-subtext {
+  color: #D4D4D4;
+}
+
+.respiration-canvas-box {
+  border: 1px solid var(--foreground);
+  background-color: #FFFFFF;
+  padding: 8px 12px;
+}
+
+.respiration-canvas-header {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  color: var(--muted-foreground);
+}
+
+/* ==========================================================================
+   ON-DEVICE AI CLASSIFICATION (1D-CNN ON HEXAGON NPU)
+   ========================================================================== */
+
+.ai-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ai-prediction-card {
+  background-color: var(--foreground);
+  color: var(--background);
+  border: 2px solid var(--foreground);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ai-class-name {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.ai-confidence-pill {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  background-color: var(--background);
+  color: var(--foreground);
+  padding: 4px 12px;
+  letter-spacing: 0.05em;
+}
+
+.ai-class-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.class-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.class-bar-label {
+  width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+
+.class-bar-track {
+  flex-grow: 1;
+  height: 12px;
+  background-color: var(--muted);
+  border: 1px solid var(--border-light);
+  position: relative;
+}
+
+.class-bar-fill {
+  height: 100%;
+  background-color: var(--foreground);
+  transition: width 0.15s ease-in-out;
+}
+
+.class-bar-percent {
+  width: 45px;
+  text-align: right;
+  font-weight: 700;
+}
+
+.ai-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 10px;
+  color: var(--muted-foreground);
+}
+
+/* ==========================================================================
+   PASSIVE RF CONTEXT & BLE CROWD MATRIX
+   ========================================================================== */
+
+.rf-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rf-density-card {
+  border: 1px solid var(--foreground);
+  padding: 14px 16px;
+  background-color: var(--background);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rf-density-count {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.rf-density-desc {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rf-beacons-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-gap: 6px;
+}
+
+.rf-beacon-node {
+  border: 1px solid var(--border-light);
+  padding: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background-color: #FAFAFA;
+}
+
+.rf-beacon-node.active-near {
+  border: 1px solid var(--foreground);
+  background-color: var(--foreground);
+  color: var(--background);
+}
+
+.rf-beacon-id {
+  font-weight: 700;
+}
+
+.rf-beacon-rssi {
+  font-size: 9px;
+  opacity: 0.8;
+}
 
 /* ==========================================================================
    HAPTIC & IMU MONITOR
@@ -521,19 +800,19 @@ canvas {
 .imu-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .haptic-display {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
-  grid-gap: 16px;
+  grid-gap: 14px;
 }
 
 .haptic-card {
   background-color: var(--foreground);
   color: var(--background);
-  padding: 16px;
+  padding: 14px 16px;
   border: 2px solid var(--foreground);
   display: flex;
   flex-direction: column;
@@ -542,7 +821,7 @@ canvas {
 
 .card-label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -550,12 +829,12 @@ canvas {
 }
 
 .haptic-badge {
-  margin: 12px 0 8px 0;
-  padding: 10px 14px;
+  margin: 10px 0 6px 0;
+  padding: 8px 12px;
   text-align: center;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border: 1px solid var(--background);
@@ -565,11 +844,10 @@ canvas {
 
 .cadence-desc {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   color: #D4D4D4;
 }
 
-/* Threat Ladder: Stark Architectural Steps */
 .threat-ladder {
   display: flex;
   flex-direction: column;
@@ -577,9 +855,9 @@ canvas {
 }
 
 .ladder-step {
-  padding: 8px 12px;
+  padding: 7px 10px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.05em;
   color: var(--muted-foreground);
@@ -595,11 +873,10 @@ canvas {
   font-weight: 700;
 }
 
-/* Accelerometer Container */
 .accel-container {
   background-color: var(--background);
   border: 1px solid var(--foreground);
-  padding: 14px 16px;
+  padding: 12px 14px;
 }
 
 .accel-header {
@@ -607,8 +884,8 @@ canvas {
   justify-content: space-between;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 11px;
-  margin-bottom: 10px;
+  font-size: 10.5px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -619,7 +896,7 @@ canvas {
 
 .accel-header strong {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--foreground);
 }
@@ -627,10 +904,6 @@ canvas {
 /* ==========================================================================
    OSCILLOSCOPE & WATERFALL
    ========================================================================== */
-
-.panel-scope {
-  grid-column: span 2;
-}
 
 .scope-layout {
   display: flex;
@@ -685,7 +958,7 @@ canvas {
 }
 
 .footer-content {
-  max-width: 1600px;
+  max-width: 1650px;
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
@@ -715,6 +988,7 @@ canvas {
   display: flex;
   gap: 20px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .footer-right a {
@@ -730,7 +1004,7 @@ canvas {
 }
 
 /* ==========================================================================
-   EMERGENCY IMPACT OVERLAY (STARK MONOCHROME INVERSION)
+   EMERGENCY IMPACT OVERLAY
    ========================================================================== */
 
 .impact-overlay {
@@ -825,33 +1099,32 @@ canvas {
    RESPONSIVE LAYOUT
    ========================================================================== */
 
-@media (max-width: 1024px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    padding: 20px;
-    grid-gap: 24px;
-  }
-  .panel-scope {
-    grid-column: span 1;
-  }
-  .navbar, .judge-toolbar, .editorial-hero {
-    padding-left: 20px;
-    padding-right: 20px;
-  }
+@media (max-width: 1200px) {
+  .col-6 { grid-column: span 12; }
+  .col-4 { grid-column: span 6; }
+  .col-8 { grid-column: span 12; }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 800px) {
+  .col-4 { grid-column: span 12; }
+  .dashboard-grid {
+    grid-gap: 20px;
+    padding: 16px;
+  }
+  .navbar, .judge-toolbar, .editorial-hero, .view-tabs-bar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
   .hud-grid {
     grid-template-columns: 1fr;
   }
   .haptic-display {
     grid-template-columns: 1fr;
   }
-  .toolbar-actions {
-    width: 100%;
+  .respiration-hero-stats {
+    grid-template-columns: 1fr;
   }
-  .btn-tool {
-    flex-grow: 1;
-    text-align: center;
+  .rf-beacons-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
