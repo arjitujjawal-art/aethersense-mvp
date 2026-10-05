@@ -26,17 +26,20 @@
             android:textStyle="bold"
             android:fontFamily="monospace" />
 
-        <Button
+        <TextView
             android:id="@+id/btnServiceToggle"
             android:layout_width="wrap_content"
-            android:layout_height="30dp"
+            android:layout_height="28dp"
             android:text="SERVICE: RUNNING"
             android:textColor="#000000"
             android:background="#FFFFFF"
-            android:textSize="10sp"
+            android:textSize="9.5sp"
             android:textStyle="bold"
             android:fontFamily="monospace"
-            android:paddingHorizontal="10dp" />
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingHorizontal="12dp" />
     </LinearLayout>
 
     <!-- Full-Featured Hardware-Accelerated Local Observatory WebView -->

@@ -28,7 +28,7 @@ class MainActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var tvAppTitle: TextView
-    private lateinit var btnServiceToggle: Button
+    private lateinit var btnServiceToggle: TextView
 
     private var sonarService: SonarService? = null
     private var isServiceBound = false
@@ -178,7 +178,21 @@ class MainActivity : Activity() {
 
     inner class AndroidNativeBridge {
         @JavascriptInterface
+        fun isNativeAndroid(): Boolean = true
+
+        @JavascriptInterface
         fun isServiceRunning(): Boolean = isServiceBound
+
+        @JavascriptInterface
+        fun toggleSonar() {
+            runOnUiThread {
+                if (isServiceBound) {
+                    stopSonarService()
+                } else {
+                    checkPermissionsAndStart()
+                }
+            }
+        }
 
         @JavascriptInterface
         fun dismissEmergencyAlert() {
