@@ -4,57 +4,85 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AetherSense Observatory // Active Sonar Telemetry</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,600;1,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Impact Emergency Alert Overlay -->
-  <div id="impact-overlay" class="impact-overlay hidden">
-    <div class="impact-content">
-      <div class="impact-icon">⚠️</div>
-      <div class="impact-title">IMPACT SHOCK DETECTED</div>
-      <div class="impact-subtitle">FREE-FALL TRIPWIRE TRIGGERED // SONAR SUSPENDED</div>
-      <div class="impact-stats" id="impact-stats">ACCEL: 38.5 m/s²</div>
-      <button id="btn-dismiss-overlay" class="btn-overlay-dismiss">DISMISS EMERGENCY ALERT</button>
-    </div>
-  </div>
 
+  <!-- Emergency Impact Alert Modal (Stark Monochrome Inversion) -->
+  <aside id="impact-overlay" class="impact-overlay hidden" aria-live="assertive" role="alert">
+    <div class="impact-card">
+      <div class="impact-marker">EMERGENCY TRIPWIRE TRIGGERED</div>
+      <h1 class="impact-title">IMPACT SHOCK DETECTED</h1>
+      <p class="impact-subtitle">Sub-100 ms IMU free-fall to peak shock sequence detected. Sonar chirps suspended to conserve battery and alert caregiver.</p>
+      <div class="impact-stats" id="impact-stats">PEAK ACCEL: 38.5 m/s²</div>
+      <button id="btn-dismiss-overlay" class="btn-overlay-dismiss">DISMISS EMERGENCY ALERT &amp; RESUME SONAR</button>
+    </div>
+  </aside>
+
+  <!-- Editorial Top Navigation -->
   <header class="navbar">
     <div class="nav-brand">
-      <span class="brand-radar-dot"></span>
-      <span class="brand-title">AETHERSENSE OBSERVATORY</span>
-      <span class="brand-tag">ACTIVE SONAR TELEMETRY</span>
+      <span class="brand-dot" aria-hidden="true"></span>
+      <span class="brand-title">AETHERSENSE</span>
+      <span class="brand-tag">ACTIVE SONAR OBSERVATORY</span>
     </div>
     <div class="nav-status">
       <a href="aethersense-mvp.apk" download class="btn-apk-download" title="Download Android APK">
-        📥 DOWNLOAD APK (2.6 MB)
+        <span>↓</span> DOWNLOAD APK (2.6 MB)
       </a>
       <span id="conn-badge" class="badge badge-connected">SIMULATOR ACTIVE</span>
-      <span class="badge badge-offline">100% OFFLINE CAPABLE</span>
+      <span class="badge badge-offline">100% OFFLINE BRIDGE</span>
       <span id="fps-meter" class="fps-text">60 FPS</span>
     </div>
   </header>
 
-  <!-- Hackathon Interactive Judge Controls Banner -->
-  <section class="judge-toolbar">
+  <!-- Editorial Hero Statement -->
+  <section class="editorial-hero">
+    <div class="hero-meta-row">
+      <span>iQOO 15 ARCHITECTURE // SNAPDRAGON 8 ELITE</span>
+      <span>BANDWIDTH: 18.0 — 20.0 kHz FMCW</span>
+      <span>AIRPLANE MODE // 0.00 KB/s CLOUD</span>
+    </div>
+    <div class="hero-headline-container">
+      <span class="hero-super">TELEMETRY OBSERVATION DECK</span>
+      <h1 class="hero-title">ACOUSTIC RADAR ENGINE</h1>
+      <p class="hero-subtitle">
+        Unmodified smartphone hardware transformed into a hands-free spatial radar. Continuous near-ultrasonic FMCW chirps measure obstacle distance and velocity with sub-80 ms tactile danger signaling.
+      </p>
+    </div>
+    <div class="hero-deco-row">
+      <div class="hero-deco-box"></div>
+      <div class="hero-deco-line"></div>
+      <div class="hero-deco-box"></div>
+    </div>
+  </section>
+
+  <!-- Interactive Hackathon Evaluation Bar -->
+  <section class="judge-toolbar" aria-label="Interactive Evaluation Controls">
     <div class="toolbar-title">
-      <span class="pulse-icon">⚡</span>
+      <span class="toolbar-title-bullet"></span>
       <strong>INTERACTIVE EVALUATION CONTROLS:</strong>
     </div>
     <div class="toolbar-actions">
       <button id="btn-sim-toggle" class="btn-tool active">MODE: INTERACTIVE SIM</button>
-      <button id="btn-test-approach" class="btn-tool">APPROACH TARGET (HAZARD &lt;0.7m)</button>
+      <button id="btn-test-approach" class="btn-tool">APPROACH TARGET (&lt;0.7m HAZARD)</button>
       <button id="btn-test-impact" class="btn-tool btn-danger">TEST FREE-FALL + IMPACT</button>
       <button id="btn-test-clutter" class="btn-tool">TOGGLE CLUTTER / MULTIPATH</button>
     </div>
   </section>
 
+  <!-- Main Observatory Dashboard Grid -->
   <main class="dashboard-grid">
+
     <!-- Panel 1: Polar Range Radar -->
     <section class="panel panel-radar">
-      <div class="panel-header">
-        <h2>1. POLAR RANGE RADAR (0.3 – 2.5 m)</h2>
-        <span id="target-readout" class="readout-pill">NO TARGET</span>
-      </div>
+      <header class="panel-header">
+        <h2><span class="panel-header-num">01.</span> POLAR RANGE RADAR (0.3 – 2.5 m)</h2>
+        <span id="target-readout" class="readout-pill">SEARCHING</span>
+      </header>
       <div class="canvas-container">
         <canvas id="radarCanvas"></canvas>
       </div>
@@ -62,30 +90,30 @@
 
     <!-- Panel 2: System Telemetry HUD -->
     <section class="panel panel-hud">
-      <div class="panel-header">
-        <h2>2. SYSTEM TELEMETRY HUD</h2>
-        <span class="status-indicator">iQOO 15 (Snapdragon 8 Elite)</span>
-      </div>
+      <header class="panel-header">
+        <h2><span class="panel-header-num">02.</span> SYSTEM TELEMETRY HUD</h2>
+        <span class="status-indicator">SNAPDRAGON 8 ELITE / DIMENSITY 9400</span>
+      </header>
       <div class="hud-grid">
+        <div class="hud-item inverted-stat">
+          <span class="hud-label">DSP LOOP LATENCY</span>
+          <span id="hud-latency" class="hud-val">12.8 ms</span>
+        </div>
+        <div class="hud-item inverted-stat">
+          <span class="hud-label">CLOUD THROUGHPUT</span>
+          <span id="hud-cloud" class="hud-val">0.00 KB/s (ISOLATED)</span>
+        </div>
         <div class="hud-item">
           <span class="hud-label">SYSTEM STATE</span>
-          <span id="hud-status" class="hud-val text-green">TRACKING</span>
+          <span id="hud-status" class="hud-val text-bold">TRACKING</span>
         </div>
         <div class="hud-item">
-          <span class="hud-label">CONNECTION</span>
-          <span id="hud-conn" class="hud-val">127.0.0.1:8080 (OFFLINE BRIDGE)</span>
-        </div>
-        <div class="hud-item">
-          <span class="hud-label">DSP LOOP LATENCY</span>
-          <span id="hud-latency" class="hud-val text-cyan">13.2 ms</span>
-        </div>
-        <div class="hud-item">
-          <span class="hud-label">CLOUD THROUGHPUT</span>
-          <span id="hud-cloud" class="hud-val text-green">0.00 KB/s (ISOLATED)</span>
+          <span class="hud-label">TELEMETRY BRIDGE</span>
+          <span id="hud-conn" class="hud-val">127.0.0.1:8080 (OFFLINE)</span>
         </div>
         <div class="hud-item">
           <span class="hud-label">ACOUSTIC BAND</span>
-          <span class="hud-val">18.0 – 20.0 kHz (LFM CHIRP)</span>
+          <span class="hud-val">18.0 – 20.0 kHz (LFM)</span>
         </div>
         <div class="hud-item">
           <span class="hud-label">AUDIO CAPTURE</span>
@@ -93,32 +121,32 @@
         </div>
         <div class="hud-item">
           <span class="hud-label">CONFIDENCE (PSR)</span>
-          <span id="hud-psr" class="hud-val text-amber">7.4</span>
+          <span id="hud-psr" class="hud-val text-bold">7.4</span>
         </div>
         <div class="hud-item">
-          <span class="hud-label">AUDIO BUFFER HEALTH</span>
-          <span id="hud-buffer" class="hud-val text-green">0 UNDERRUNS</span>
+          <span class="hud-label">BUFFER INTEGRITY</span>
+          <span id="hud-buffer" class="hud-val text-bold">0 UNDERRUNS</span>
         </div>
       </div>
     </section>
 
     <!-- Panel 3: Haptic & IMU Monitor -->
     <section class="panel panel-imu">
-      <div class="panel-header">
-        <h2>3. HAPTIC &amp; IMU MONITOR</h2>
+      <header class="panel-header">
+        <h2><span class="panel-header-num">03.</span> HAPTIC &amp; IMU MONITOR</h2>
         <span id="tripwire-badge" class="badge badge-armed">ARMED / SECURE</span>
-      </div>
+      </header>
       <div class="imu-content">
         <div class="haptic-display">
           <div class="haptic-card">
-            <span class="card-label">HAPTIC ENGINE CADENCE</span>
-            <div id="haptic-level" class="haptic-badge haptic-caution">CAUTION (SLOW PULSE)</div>
+            <span class="card-label">HAPTIC CADENCE ENGINE</span>
+            <div id="haptic-level" class="haptic-badge">CAUTION (SLOW PULSE)</div>
             <div class="cadence-desc" id="haptic-desc">50 ms ON, 400 ms OFF (1.2 – 2.0 m)</div>
           </div>
           <div class="threat-ladder">
             <div class="ladder-step" id="step-hazard">&lt; 0.7m HAZARD (Rapid Pulse)</div>
-            <div class="ladder-step" id="step-warning">0.7 - 1.2m WARNING (Medium Pulse)</div>
-            <div class="ladder-step active" id="step-caution">1.2 - 2.0m CAUTION (Slow Pulse)</div>
+            <div class="ladder-step" id="step-warning">0.7 – 1.2m WARNING (Medium Pulse)</div>
+            <div class="ladder-step active" id="step-caution">1.2 – 2.0m CAUTION (Slow Pulse)</div>
             <div class="ladder-step" id="step-clear">&gt; 2.0m CLEAR (No Feedback)</div>
           </div>
         </div>
@@ -135,21 +163,42 @@
 
     <!-- Panel 4: Real-Time Correlation Oscilloscope & Waterfall -->
     <section class="panel panel-scope">
-      <div class="panel-header">
-        <h2>4. CORRELATION OSCILLOSCOPE &amp; WATERFALL (0.0 – 3.0 m)</h2>
-        <span id="peak-readout" class="readout-pill">Direct-Path Blanked (0 - 0.3 m)</span>
-      </div>
+      <header class="panel-header">
+        <h2><span class="panel-header-num">04.</span> CORRELATION OSCILLOSCOPE &amp; WATERFALL (0.0 – 3.0 m)</h2>
+        <span id="peak-readout" class="readout-pill">DIRECT-PATH BLANKED (0 – 0.3 m)</span>
+      </header>
       <div class="scope-layout">
         <div class="scope-row">
           <canvas id="scopeCanvas" height="150"></canvas>
         </div>
         <div class="waterfall-row">
-          <div class="waterfall-title">RANGE-TIME WATERFALL HISTORY (PAST 10 SECONDS)</div>
+          <div class="waterfall-header-row">
+            <span class="waterfall-title">RANGE-TIME WATERFALL (PAST 10 SECONDS)</span>
+            <span class="waterfall-meta">60 FRAMES // HIGH DENSITY</span>
+          </div>
           <canvas id="waterfallCanvas" height="110"></canvas>
         </div>
       </div>
     </section>
+
   </main>
+
+  <!-- Editorial Footer -->
+  <footer class="observatory-footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="footer-brand">AETHERSENSE MVP</span>
+        <span>OMNIDIRECTIONAL ACOUSTIC SPATIAL RADAR &bull; 100% OFFLINE</span>
+      </div>
+      <div class="footer-right">
+        <a href="aethersense-mvp.apk" download>GET APK</a>
+        <span>&bull;</span>
+        <span>iQOO 15 / ANDROID 14+</span>
+        <span>&bull;</span>
+        <span>ZERO CLOUD TELEMETRY</span>
+      </div>
+    </div>
+  </footer>
 
   <script src="app.js"></script>
 </body>

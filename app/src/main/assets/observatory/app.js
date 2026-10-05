@@ -1,4 +1,4 @@
-// AetherSense Observatory // Frontend Telemetry Client & Renderer
+// AetherSense Observatory // Minimalist Monochrome Telemetry Engine & Canvas Renderer
 (function() {
   'use strict';
 
@@ -64,6 +64,7 @@
 
   function resizeCanvases() {
     [radarCanvas, scopeCanvas, waterfallCanvas, imuCanvas].forEach(c => {
+      if (!c) return;
       const rect = c.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       c.width = rect.width * dpr;
@@ -113,7 +114,7 @@
     const threat = simIsCluttered ? 'UNCERTAIN' :
       (!detected ? 'CLEAR' : (simTargetDist < 0.7 ? 'HAZARD' : (simTargetDist < 1.2 ? 'WARNING' : 'CAUTION')));
 
-    // 100-point curve across 0.0 to 3.0 m
+    // 100-point correlation curve across 0.0 to 3.0 m
     const curve = new Array(100).fill(0).map((_, i) => {
       const binDist = (i / 100) * 3.0;
       let v = Math.random() * 0.03;
@@ -156,13 +157,13 @@
     onFrameReceived(frame);
   }
 
-  // ---------------------------------------------------- WebSocket
+  // ---------------------------------------------------- WebSocket Client
   let wsTimeout = null;
 
   function connectWs() {
     elConnBadge.textContent = 'CONNECTING TO PHONE (127.0.0.1:8080)...';
     elConnBadge.className = 'badge badge-disconnected';
-    elHudConn.textContent = '127.0.0.1:8080 (WS)';
+    elHudConn.textContent = '127.0.0.1:8080 (OFFLINE BRIDGE)';
 
     try {
       ws = new WebSocket(wsUrl);
@@ -182,7 +183,7 @@
     ws.onopen = () => {
       clearTimeout(wsTimeout);
       isSimulating = false;
-      elConnBadge.textContent = 'LIVE PHONE CONNECTED (OFFLINE BRIDGE)';
+      elConnBadge.textContent = 'LIVE PHONE CONNECTED';
       elConnBadge.className = 'badge badge-connected';
       btnSimToggle.textContent = 'MODE: LIVE HARDWARE BRIDGE';
       btnSimToggle.classList.remove('active');
@@ -233,12 +234,11 @@
     updateHud(frame);
   }
 
-  // ---------------------------------------------------- HUD Update
+  // ---------------------------------------------------- HUD & DOM Updates
   function updateHud(f) {
     if (!f) return;
 
     elHudStatus.textContent = f.status || 'ACTIVE';
-    elHudStatus.className = 'hud-val ' + (f.status === 'TRACKING' ? 'text-green' : (f.status === 'IMPACT_ALERT' ? 'text-red' : 'text-cyan'));
 
     if (f.telemetry) {
       elHudLatency.textContent = `${f.telemetry.dsp_latency_ms.toFixed(1)} ms`;
@@ -250,16 +250,23 @@
       if (f.target.detected && f.target.distance_m > 0) {
         const d = f.target.distance_m;
         const threat = f.target.threat_level || 'CLEAR';
-        elTargetReadout.textContent = `TARGET: ${d.toFixed(2)} m (${threat})`;
-        elTargetReadout.style.color = d < 0.8 ? 'var(--accent-red)' : (d <= 1.5 ? 'var(--accent-amber)' : 'var(--accent-green)');
+        elTargetReadout.textContent = `TARGET: ${d.toFixed(2)} m [${threat}]`;
+        if (d < 0.7) {
+          elTargetReadout.style.backgroundColor = '#000000';
+          elTargetReadout.style.color = '#FFFFFF';
+        } else {
+          elTargetReadout.style.backgroundColor = '#FFFFFF';
+          elTargetReadout.style.color = '#000000';
+        }
       } else {
-        elTargetReadout.textContent = f.status === 'UNCERTAIN' ? 'UNCERTAIN / CLUTTERED' : 'SEARCHING (NO TARGET)';
-        elTargetReadout.style.color = 'var(--text-muted)';
+        elTargetReadout.textContent = f.status === 'UNCERTAIN' ? 'UNCERTAIN / MULTIPATH' : 'SEARCHING (NO TARGET)';
+        elTargetReadout.style.backgroundColor = '#FFFFFF';
+        elTargetReadout.style.color = '#525252';
       }
     }
 
     const threat = (f.target && f.target.threat_level) || 'CLEAR';
-    updateHapticDisplay(threat, f.target ? f.target.distance_m : -1);
+    updateHapticDisplay(threat);
 
     if (f.imu) {
       elAccelVal.textContent = `${f.imu.acc_magnitude.toFixed(2)} m/s²`;
@@ -267,7 +274,7 @@
         elTripwireBadge.textContent = 'TRIGGERED / IMPACT!';
         elTripwireBadge.className = 'badge badge-impact';
         elImpactOverlay.classList.remove('hidden');
-        elImpactStats.textContent = `PEAK IMPACT: ${f.imu.acc_magnitude.toFixed(1)} m/s²`;
+        elImpactStats.textContent = `PEAK ACCEL: ${f.imu.acc_magnitude.toFixed(1)} m/s²`;
       } else {
         elTripwireBadge.textContent = 'ARMED / SECURE';
         elTripwireBadge.className = 'badge badge-armed';
@@ -276,8 +283,7 @@
     }
   }
 
-  function updateHapticDisplay(threat, distance) {
-    elHapticLevel.className = 'haptic-badge ' + ('haptic-' + threat.toLowerCase());
+  function updateHapticDisplay(threat) {
     Object.values(ladderSteps).forEach(el => el && el.classList.remove('active'));
 
     switch (threat) {
@@ -298,7 +304,7 @@
         break;
       case 'UNCERTAIN':
         elHapticLevel.textContent = 'UNCERTAIN (DOUBLE-TAP)';
-        elHapticDesc.textContent = 'Soft double-tap warning; clutter / muting';
+        elHapticDesc.textContent = 'Soft double-tap warning; multipath clutter';
         break;
       default:
         elHapticLevel.textContent = 'CLEAR (OFF)';
@@ -330,7 +336,7 @@
     if (!isSimulating) startSimulator();
     simImpactTriggered = true;
 
-    // Simulate free-fall then shock
+    // Simulate free-fall then shock sequence
     let step = 0;
     const impactInterval = setInterval(() => {
       step++;
@@ -382,7 +388,7 @@
     requestAnimationFrame(render);
   }
 
-  // ---------------------------------------------------- 1. Radar
+  // ---------------------------------------------------- 1. Monochrome Polar Radar
   function drawRadar(time) {
     const w = radarCanvas.width;
     const h = radarCanvas.height;
@@ -396,129 +402,214 @@
     const maxRangeM = 2.5;
 
     radarCtx.save();
+
+    // Polar backdrop arc
     radarCtx.beginPath();
     radarCtx.arc(cx, cy, maxRadius, Math.PI, 2 * Math.PI);
-    radarCtx.fillStyle = '#060d17';
+    radarCtx.fillStyle = '#FFFFFF';
     radarCtx.fill();
+    radarCtx.lineWidth = 1.5;
+    radarCtx.strokeStyle = '#000000';
+    radarCtx.stroke();
 
+    // Concentric range rings
     const rings = [0.5, 1.0, 1.5, 2.0, 2.5];
     radarCtx.lineWidth = 1;
     rings.forEach(r => {
       const radius = (r / maxRangeM) * maxRadius;
       radarCtx.beginPath();
       radarCtx.arc(cx, cy, radius, Math.PI, 2 * Math.PI);
-      radarCtx.strokeStyle = 'rgba(0, 229, 160, 0.2)';
+      radarCtx.strokeStyle = '#E5E5E5';
       radarCtx.stroke();
 
-      radarCtx.fillStyle = 'rgba(0, 229, 160, 0.5)';
-      radarCtx.font = `${Math.max(10, w * 0.024)}px monospace`;
+      // Range text labels
+      radarCtx.fillStyle = '#525252';
+      radarCtx.font = `500 ${Math.max(10, Math.floor(w * 0.024))}px "JetBrains Mono", monospace`;
+      radarCtx.textAlign = 'left';
       radarCtx.fillText(`${r.toFixed(1)}m`, cx + 6, cy - radius + 4);
     });
 
+    // Azimuth ray dividers
+    radarCtx.setLineDash([3, 4]);
+    radarCtx.strokeStyle = '#D4D4D4';
     [-60, -30, 0, 30, 60].forEach(deg => {
       const rad = (deg - 90) * (Math.PI / 180);
       radarCtx.beginPath();
       radarCtx.moveTo(cx, cy);
       radarCtx.lineTo(cx + Math.cos(rad) * maxRadius, cy + Math.sin(rad) * maxRadius);
-      radarCtx.strokeStyle = 'rgba(0, 229, 160, 0.1)';
       radarCtx.stroke();
     });
+    radarCtx.setLineDash([]);
 
+    // Animated sonar sweep sector
     sweepAngle = (sweepAngle + 0.035) % (Math.PI * 2);
     const sectorAngle = (Math.sin(sweepAngle) * 0.9 - Math.PI / 2);
     const sweepRadius = maxRadius;
 
+    // Wedge gradient
     const grad = radarCtx.createRadialGradient(cx, cy, 0, cx, cy, sweepRadius);
-    grad.addColorStop(0, 'rgba(0, 229, 160, 0.3)');
-    grad.addColorStop(1, 'rgba(0, 229, 160, 0.0)');
+    grad.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0.01)');
 
     radarCtx.beginPath();
     radarCtx.moveTo(cx, cy);
-    radarCtx.arc(cx, cy, sweepRadius, sectorAngle - 0.25, sectorAngle, false);
+    radarCtx.arc(cx, cy, sweepRadius, sectorAngle - 0.22, sectorAngle, false);
     radarCtx.closePath();
     radarCtx.fillStyle = grad;
     radarCtx.fill();
 
+    // Sharp sweep line
     radarCtx.beginPath();
-    radarCtx.arc(cx, cy, 8, 0, Math.PI * 2);
-    radarCtx.fillStyle = '#00e5a0';
-    radarCtx.fill();
-    radarCtx.fillStyle = '#ffffff';
-    radarCtx.font = '10px monospace';
-    radarCtx.textAlign = 'center';
-    radarCtx.fillText('PHONE', cx, cy + 18);
+    radarCtx.moveTo(cx, cy);
+    radarCtx.lineTo(cx + Math.cos(sectorAngle) * sweepRadius, cy + Math.sin(sectorAngle) * sweepRadius);
+    radarCtx.strokeStyle = '#000000';
+    radarCtx.lineWidth = 1.5;
+    radarCtx.stroke();
 
+    // Phone / Emitter origin
+    radarCtx.fillStyle = '#000000';
+    radarCtx.fillRect(cx - 5, cy - 5, 10, 10);
+    radarCtx.font = '700 10px "JetBrains Mono", monospace';
+    radarCtx.textAlign = 'center';
+    radarCtx.fillText('iQOO 15', cx, cy + 18);
+
+    // Target Blip: High-contrast architectural crosshair & callout
     if (latestFrame && latestFrame.target && latestFrame.target.detected && latestFrame.target.distance_m > 0) {
       const d = latestFrame.target.distance_m;
       const blipRadius = (d / maxRangeM) * maxRadius;
       const blipX = cx;
       const blipY = cy - blipRadius;
 
-      const blipColor = d < 0.8 ? '#ef4444' : (d <= 1.5 ? '#f59e0b' : '#00e5a0');
-
+      // Pulsing outer indicator
       radarCtx.beginPath();
-      radarCtx.arc(blipX, blipY, 14 + Math.sin(time * 0.01) * 3, 0, Math.PI * 2);
-      radarCtx.strokeStyle = blipColor;
-      radarCtx.lineWidth = 2;
+      radarCtx.arc(blipX, blipY, 12 + Math.sin(time * 0.01) * 3, 0, Math.PI * 2);
+      radarCtx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+      radarCtx.lineWidth = 1;
       radarCtx.stroke();
 
+      // Sharp architectural target crosshair ticks
+      radarCtx.strokeStyle = '#000000';
+      radarCtx.lineWidth = 1.5;
       radarCtx.beginPath();
-      radarCtx.arc(blipX, blipY, 6, 0, Math.PI * 2);
-      radarCtx.fillStyle = blipColor;
+      radarCtx.moveTo(blipX - 12, blipY); radarCtx.lineTo(blipX - 5, blipY);
+      radarCtx.moveTo(blipX + 5, blipY); radarCtx.lineTo(blipX + 12, blipY);
+      radarCtx.moveTo(blipX, blipY - 12); radarCtx.lineTo(blipX, blipY - 5);
+      radarCtx.moveTo(blipX, blipY + 5); radarCtx.lineTo(blipX, blipY + 12);
+      radarCtx.stroke();
+
+      // Solid central marker
+      radarCtx.beginPath();
+      radarCtx.arc(blipX, blipY, 4, 0, Math.PI * 2);
+      radarCtx.fillStyle = '#000000';
       radarCtx.fill();
 
-      radarCtx.fillStyle = '#ffffff';
-      radarCtx.font = 'bold 12px monospace';
-      radarCtx.fillText(`${d.toFixed(2)} m`, blipX + 18, blipY + 4);
+      // Inverted distance tag box
+      const tagText = `${d.toFixed(2)} m`;
+      radarCtx.font = '700 11px "JetBrains Mono", monospace';
+      const textWidth = radarCtx.measureText(tagText).width;
+      const boxW = textWidth + 16;
+      const boxH = 20;
+
+      radarCtx.fillStyle = '#000000';
+      radarCtx.fillRect(blipX + 16, blipY - 10, boxW, boxH);
+
+      radarCtx.fillStyle = '#FFFFFF';
+      radarCtx.textAlign = 'left';
+      radarCtx.fillText(tagText, blipX + 24, blipY + 4);
     }
 
     radarCtx.restore();
   }
 
-  // ---------------------------------------------------- 2. Oscilloscope
+  // ---------------------------------------------------- 2. Correlation Oscilloscope
   function drawScope() {
     const w = scopeCanvas.width;
     const h = scopeCanvas.height;
     if (w === 0 || h === 0) return;
 
     scopeCtx.clearRect(0, 0, w, h);
-    scopeCtx.fillStyle = '#080d16';
+    scopeCtx.fillStyle = '#FFFFFF';
     scopeCtx.fillRect(0, 0, w, h);
 
-    const padLeft = 40;
-    const padRight = 20;
-    const padTop = 20;
-    const padBottom = 25;
+    const padLeft = 45;
+    const padRight = 24;
+    const padTop = 22;
+    const padBottom = 26;
     const plotW = w - padLeft - padRight;
     const plotH = h - padTop - padBottom;
 
+    // Outer framing box
     scopeCtx.lineWidth = 1;
-    scopeCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    scopeCtx.strokeStyle = '#000000';
+    scopeCtx.strokeRect(padLeft, padTop, plotW, plotH);
+
+    // Range subdivisions & distance labels
     for (let m = 0; m <= 3.0; m += 0.5) {
       const x = padLeft + (m / 3.0) * plotW;
       scopeCtx.beginPath();
       scopeCtx.moveTo(x, padTop);
       scopeCtx.lineTo(x, padTop + plotH);
+      scopeCtx.strokeStyle = '#F0F0F0';
       scopeCtx.stroke();
 
-      scopeCtx.fillStyle = '#64748b';
-      scopeCtx.font = '10px monospace';
+      scopeCtx.fillStyle = '#525252';
+      scopeCtx.font = '500 10px "JetBrains Mono", monospace';
       scopeCtx.textAlign = 'center';
       scopeCtx.fillText(`${m.toFixed(1)}m`, x, h - 8);
     }
 
+    // Direct-path blanking zone (0 – 0.3 m) with architectural diagonal hatching
     const blankX = padLeft + (0.3 / 3.0) * plotW;
-    scopeCtx.fillStyle = 'rgba(239, 68, 68, 0.08)';
-    scopeCtx.fillRect(padLeft, padTop, blankX - padLeft, plotH);
-    scopeCtx.fillStyle = 'rgba(239, 68, 68, 0.4)';
-    scopeCtx.font = '9px monospace';
-    scopeCtx.fillText('BLANKED (0-0.3m)', padLeft + (blankX - padLeft) / 2, padTop + 14);
+    scopeCtx.save();
+    scopeCtx.beginPath();
+    scopeCtx.rect(padLeft, padTop, blankX - padLeft, plotH);
+    scopeCtx.clip();
 
+    scopeCtx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+    scopeCtx.lineWidth = 1;
+    const step = 8;
+    for (let x = padLeft - plotH; x < blankX + plotH; x += step) {
+      scopeCtx.beginPath();
+      scopeCtx.moveTo(x, padTop + plotH);
+      scopeCtx.lineTo(x + plotH, padTop);
+      scopeCtx.stroke();
+    }
+    scopeCtx.restore();
+
+    // Blanking zone boundary line
+    scopeCtx.beginPath();
+    scopeCtx.moveTo(blankX, padTop);
+    scopeCtx.lineTo(blankX, padTop + plotH);
+    scopeCtx.strokeStyle = '#000000';
+    scopeCtx.lineWidth = 1;
+    scopeCtx.stroke();
+
+    scopeCtx.fillStyle = '#000000';
+    scopeCtx.font = '700 9px "JetBrains Mono", monospace';
+    scopeCtx.textAlign = 'left';
+    scopeCtx.fillText('BLANKED (0–0.3m)', padLeft + 4, padTop + 14);
+
+    // Threshold reference line (mu + 4.5 sigma)
+    const yThresh = padTop + plotH * 0.70;
+    scopeCtx.setLineDash([4, 4]);
+    scopeCtx.strokeStyle = '#737373';
+    scopeCtx.beginPath();
+    scopeCtx.moveTo(blankX, yThresh);
+    scopeCtx.lineTo(padLeft + plotW, yThresh);
+    scopeCtx.stroke();
+    scopeCtx.setLineDash([]);
+
+    scopeCtx.fillStyle = '#737373';
+    scopeCtx.font = '500 8px "JetBrains Mono", monospace';
+    scopeCtx.textAlign = 'right';
+    scopeCtx.fillText('THRESHOLD (μ + 4.5σ)', padLeft + plotW - 8, yThresh - 4);
+
+    // Normalized correlation curve trace
     const curve = (latestFrame && latestFrame.dsp && latestFrame.dsp.correlation_curve) || null;
     if (curve && curve.length > 0) {
       scopeCtx.beginPath();
-      scopeCtx.strokeStyle = '#00e5a0';
-      scopeCtx.lineWidth = 2;
+      scopeCtx.strokeStyle = '#000000';
+      scopeCtx.lineWidth = 2.2;
 
       for (let i = 0; i < curve.length; i++) {
         const x = padLeft + (i / (curve.length - 1)) * plotW;
@@ -529,25 +620,42 @@
       }
       scopeCtx.stroke();
 
+      // Peak blip callout
       if (latestFrame.target && latestFrame.target.detected && latestFrame.target.distance_m > 0) {
         const d = latestFrame.target.distance_m;
         const peakX = padLeft + (d / 3.0) * plotW;
         const bin = Math.min(curve.length - 1, Math.max(0, Math.round((d / 3.0) * curve.length)));
         const peakY = padTop + plotH - Math.max(0, Math.min(1, curve[bin] || 0.5)) * plotH;
 
-        scopeCtx.beginPath();
-        scopeCtx.arc(peakX, peakY, 5, 0, Math.PI * 2);
-        scopeCtx.fillStyle = '#f59e0b';
-        scopeCtx.fill();
+        // Solid black peak square
+        scopeCtx.fillStyle = '#000000';
+        scopeCtx.fillRect(peakX - 4, peakY - 4, 8, 8);
 
-        scopeCtx.fillStyle = '#f59e0b';
-        scopeCtx.font = 'bold 10px monospace';
-        scopeCtx.fillText(`Peak: ${d.toFixed(2)}m (PSR: ${latestFrame.target.confidence_psr.toFixed(1)})`, peakX + 8, peakY - 6);
+        // Vertical drop line to baseline
+        scopeCtx.setLineDash([2, 3]);
+        scopeCtx.strokeStyle = '#000000';
+        scopeCtx.beginPath();
+        scopeCtx.moveTo(peakX, peakY + 4);
+        scopeCtx.lineTo(peakX, padTop + plotH);
+        scopeCtx.stroke();
+        scopeCtx.setLineDash([]);
+
+        // Peak callout badge
+        const calloutText = `PEAK: ${d.toFixed(2)}m (PSR: ${latestFrame.target.confidence_psr.toFixed(1)})`;
+        scopeCtx.font = '700 9px "JetBrains Mono", monospace';
+        const cWidth = scopeCtx.measureText(calloutText).width;
+
+        scopeCtx.fillStyle = '#000000';
+        scopeCtx.fillRect(peakX + 8, peakY - 16, cWidth + 12, 16);
+
+        scopeCtx.fillStyle = '#FFFFFF';
+        scopeCtx.textAlign = 'left';
+        scopeCtx.fillText(calloutText, peakX + 14, peakY - 5);
       }
     }
   }
 
-  // ---------------------------------------------------- 3. Waterfall
+  // ---------------------------------------------------- 3. Monochrome Waterfall
   function drawWaterfall() {
     const w = waterfallCanvas.width;
     const h = waterfallCanvas.height;
@@ -566,15 +674,19 @@
 
       for (let c = 0; c < cols; c++) {
         const val = Math.max(0, Math.min(1, curve[c]));
-        const intensity = Math.pow(val, 0.7);
-        const red = Math.min(255, Math.floor(intensity * 300));
-        const green = Math.min(255, Math.floor(intensity * 220));
-        const blue = Math.min(255, Math.floor((1 - intensity) * 80 + intensity * 150));
+        const intensity = Math.pow(val, 0.65);
+        // Map 0 to pure white (255) and 1 to pure black (0)
+        const gray = Math.max(0, Math.min(255, Math.floor(255 - intensity * 255)));
 
-        waterfallCtx.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+        waterfallCtx.fillStyle = `rgb(${gray}, ${gray}, ${gray})`;
         waterfallCtx.fillRect(c * colW, y, colW + 1, rowH + 1);
       }
     }
+
+    // Outer framing rule
+    waterfallCtx.strokeStyle = '#000000';
+    waterfallCtx.lineWidth = 1;
+    waterfallCtx.strokeRect(0, 0, w, h);
   }
 
   // ---------------------------------------------------- 4. IMU Sparkline
@@ -584,11 +696,13 @@
     if (w === 0 || h === 0) return;
 
     imuCtx.clearRect(0, 0, w, h);
-    imuCtx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+    imuCtx.fillStyle = '#FFFFFF';
     imuCtx.fillRect(0, 0, w, h);
 
+    // 9.81 m/s² gravity reference rule
     const gY = h * 0.65;
-    imuCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    imuCtx.strokeStyle = '#A3A3A3';
+    imuCtx.lineWidth = 1;
     imuCtx.setLineDash([4, 4]);
     imuCtx.beginPath();
     imuCtx.moveTo(0, gY);
@@ -596,18 +710,34 @@
     imuCtx.stroke();
     imuCtx.setLineDash([]);
 
-    imuCtx.beginPath();
-    imuCtx.strokeStyle = '#38bdf8';
-    imuCtx.lineWidth = 1.5;
+    imuCtx.fillStyle = '#737373';
+    imuCtx.font = '500 9px "JetBrains Mono", monospace';
+    imuCtx.textAlign = 'right';
+    imuCtx.fillText('9.81 m/s² (1.0g BASELINE)', w - 8, gY - 4);
 
+    // Sparkline waveform
+    imuCtx.beginPath();
+    imuCtx.strokeStyle = '#000000';
+    imuCtx.lineWidth = 1.8;
+
+    let lastX = 0;
+    let lastY = gY;
     for (let i = 0; i < imuHistory.length; i++) {
       const x = (i / (imuHistory.length - 1)) * w;
       const val = imuHistory[i];
       const y = h - (val / 40.0) * h;
       if (i === 0) imuCtx.moveTo(x, y);
       else imuCtx.lineTo(x, y);
+      lastX = x;
+      lastY = y;
     }
     imuCtx.stroke();
+
+    // Current point dot
+    imuCtx.beginPath();
+    imuCtx.arc(lastX - 2, lastY, 3, 0, Math.PI * 2);
+    imuCtx.fillStyle = '#000000';
+    imuCtx.fill();
   }
 
   // Connect automatically, or auto-fallback to simulator
